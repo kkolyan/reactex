@@ -1,7 +1,6 @@
 use std::thread::sleep;
 use std::time::Duration;
-use reactex::api::{ComponentTypeAware, ConfigurablePipeline, ExecutablePipeline, FilterKey, IntoFilterKey, WorldState, WorldWriter};
-use reactex::stub::StubPipelineFactory;
+use reactex::api::{ComponentTypeAware, ConfigurablePipeline, ExecutablePipeline, FilterKey, IntoFilterKey, WorldState, WorldChanges};
 
 struct Explosion {
     damage: f32,
@@ -22,18 +21,18 @@ struct Damage;
 struct Update;
 
 fn main() {
-    let mut factory = StubPipelineFactory::new();
+    let mut factory = ConfigurablePipeline::new();
     factory.add_entity_signal_handler::<Update>(
         <(Explosion, Position)>::create_filter_key(&factory),
-        |entity, _, state, writer| {
-            let explosion = state.get_component::<Explosion>(entity).unwrap();
-            let exp_pos = state.get_component::<Position>(entity).unwrap();
-            state.query(
-                &<(Health, Position)>::create_filter_key(state),
+        |_, ctx| {
+            let explosion = ctx.state.get_component::<Explosion>(ctx.entity).unwrap();
+            let exp_pos = ctx.state.get_component::<Position>(ctx.entity).unwrap();
+            ctx.state.query(
+                &<(Health, Position)>::create_filter_key(ctx.state),
                 |victim| {
-                    let victim_pos = state.get_component::<Position>(victim).unwrap();
+                    let victim_pos = ctx.state.get_component::<Position>(victim).unwrap();
                     if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-                        writer.update_component::<Health>(victim, |health| {
+                        ctx.changes.update_component::<Health>(victim, |health| {
                             health.health -= explosion.damage;
                         });
                     }
