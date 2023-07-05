@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::ops::Deref;
 
 #[derive(Copy, Clone)]
 pub struct ComponentType(TypeId);
@@ -67,6 +68,10 @@ impl WorldChanges {
         todo!()
     }
 
+    pub fn update_mut_wrapper<T>(&mut self, reference: &Mut<T>, callback: impl FnOnce(&mut T)) {
+        todo!()
+    }
+
     pub fn remove_component<T>(&mut self, entity: Entity) {
         todo!()
     }
@@ -91,7 +96,15 @@ pub struct EntityCtx<'a> {
 
 pub struct Mut<'a, T> {
     entity: Entity,
-    pub value: &'a T
+    value: &'a T
+}
+
+impl <'a, T> Deref for Mut<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
 }
 
 pub struct ConfigurablePipeline {}

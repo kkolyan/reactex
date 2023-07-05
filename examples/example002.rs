@@ -2,8 +2,8 @@ use std::convert::Into;
 use std::sync::RwLock;
 use std::thread::sleep;
 use std::time::Duration;
-use reactex::api::{ComponentTypeAware, ConfigurablePipeline, Entity, ExecutablePipeline, FilterKey, IntoFilterKey, WorldState, WorldChanges, EntityCtx, GetRef, Module};
-use reactex_macro::{on_signal};
+use reactex::api::{ComponentTypeAware, ConfigurablePipeline, Entity, ExecutablePipeline, FilterKey, IntoFilterKey, WorldState, WorldChanges, EntityCtx, GetRef, Module, Mut};
+use reactex_macro::{on_signal, sub_query};
 
 struct Explosion {
     damage: f32,
@@ -29,6 +29,13 @@ struct Position {
 impl GetRef for Position {
     fn get() -> &'static Self {
         static x: Position = Position { x: 0.0, y: 0.0 };
+        &x
+    }
+}
+
+impl GetRef for Health {
+    fn get() -> &'static Self {
+        static x: Health = Health { health: 0.0 };
         &x
     }
 }
@@ -64,10 +71,9 @@ fn main() {
 static DEMO : RwLock<Module> = RwLock::new(Module::new());
 
 #[on_signal(DEMO)]
-fn update_explosion(_: &Update, explosion: &Explosion, exp_pos: &Position, ctx: EntityCtx) {
-    let a = 42;
+fn update_explosion(_: &Update, explosion: &Explosion, exp_pos: Mut<Position>, ctx: EntityCtx) {
 
-    let b = a * 2;
+    // without macros
     ctx.state.query(
         &<(Health, Position)>::create_filter_key(ctx.state),
         |victim| {
@@ -79,4 +85,21 @@ fn update_explosion(_: &Update, explosion: &Explosion, exp_pos: &Position, ctx: 
             }
         },
     );
+
+    // with macros 1
+    #[lookup(ctx)]
+    |victim_pos: &Position, health: Mut<Health>| {
+        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
+
+            ctx.changes.update_mut_wrapper(&health, |health| { health.health -= explosion.damage; });
+        }
+    };
+
+    // with macros 2
+    sub_query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
+        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
+            #[update(ctx)]
+            health.health -= explosion.damage;
+        }
+    });
 }
