@@ -1,7 +1,11 @@
+#![feature(stmt_expr_attributes)]
+#![feature(proc_macro_hygiene)]
+
 use std::sync::RwLock;
 
-use reactex::api::{ComponentTypeAware, ConfigurablePipeline, Ctx, Entity, GetRef, IntoFilterKey, Module, WorldChanges, WorldState};
+use reactex::api::*;
 use reactex_macro::*;
+
 
 struct Explosion {
     damage: f32,
@@ -17,8 +21,21 @@ impl GetRef for Explosion {
 
 struct Health {
     health: f32,
+    status: Statuses,
 }
 
+impl Health {
+    fn heal(&mut self) {
+
+    }
+}
+
+struct Statuses {
+    drunk: bool,
+    dead: bool,
+}
+
+#[derive(Copy, Clone)]
 struct Position {
     x: f32,
     y: f32,
@@ -33,7 +50,7 @@ impl GetRef for Position {
 
 impl GetRef for Health {
     fn get() -> &'static Self {
-        static x: Health = Health { health: 0.0 };
+        static x: Health = Health { health: 0.0, status: Statuses { drunk: false, dead: false } };
         &x
     }
 }
@@ -68,46 +85,31 @@ fn main() {
 
 static DEMO: RwLock<Module> = RwLock::new(Module::new());
 
+//noinspection DuplicatedCode
 #[on_signal(DEMO)]
 fn update_explosion(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
-
-    // without macros
-    ctx.state.query(
-        &<(Health, Position)>::create_filter_key(ctx.state),
-        |victim| {
-            let victim_pos = ctx.state.get_component::<Position>(victim).unwrap();
-            if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-                ctx.changes.update_component::<Health>(victim, |health| {
-                    health.health -= explosion.damage;
-                });
-                // modify!(ctx, || health.health -= explosion.damage )
-            }
-        },
-    );
-
-    // with macros 1
-    query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
-        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-
-            ctx.changes.update_mut_wrapper(&health, |health| { health.health -= explosion.damage; });
-        }
-    });
-
     // with macros 2
-    query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
+    #[query(ctx)]
+    |victim_pos: &Position, health: Mut<Health>| {
         if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-            modify!(ctx, || health.health -= explosion.damage )
+            health.modify(|it| it.health -= explosion.damage);
+            health.modify(|it| it.heal());
+            health.modify(|it| it.status.dead = true);
         }
-    });
+    };
 }
 
 //noinspection DuplicatedCode
-#[on_signal(DEMO)]
-fn update_explosion1(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
-    // with macros 2
-    query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
-        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-            modify!(ctx, || health.health -= explosion.damage )
-        }
-    });
+#[on_signal_global(DEMO)]
+fn update_all(ctx: Ctx<Update>) {
+}
+
+//noinspection DuplicatedCode
+#[on_appear(DEMO)]
+fn on_explosion_appear(ctx: Ctx, explosion: &Explosion, exp_pos: Mut<Position>) {
+}
+
+//noinspection DuplicatedCode
+#[on_disappear(DEMO)]
+fn on_explosion_disappear(ctx: Ctx, explosion: &Explosion, exp_pos: Mut<Position>) {
 }

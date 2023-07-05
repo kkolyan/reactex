@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse2;
 
-pub fn pretty_print_expr(stream: syn::Result<TokenStream>) -> String {
+pub fn print(stream: syn::Result<TokenStream>) -> String {
     let stream = stream.unwrap_or_else(syn::Error::into_compile_error);
     let stream = quote!{
         fn main() {

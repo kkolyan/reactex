@@ -1,5 +1,5 @@
 use std::any::TypeId;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone)]
 pub struct ComponentType(TypeId);
@@ -68,14 +68,6 @@ impl WorldChanges {
         todo!()
     }
 
-    pub fn update_component<T>(&mut self, entity: Entity, callback: impl FnOnce(&mut T)) {
-        todo!()
-    }
-
-    pub fn update_mut_wrapper<T>(&mut self, reference: &Mut<T>, callback: impl FnOnce(&mut T)) {
-        todo!()
-    }
-
     pub fn remove_component<T>(&mut self, entity: Entity) {
         todo!()
     }
@@ -83,12 +75,6 @@ impl WorldChanges {
     pub fn signal<T>(&mut self, signal: T) {
         todo!()
     }
-}
-
-pub trait ComponentWriter {}
-
-fn dodo() {
-    let ctx : Ctx = todo!();
 }
 
 pub struct Ctx<'a, T = ()> {
@@ -103,8 +89,7 @@ pub struct Mut<'a, T> {
 }
 
 impl <'a, T> Mut<'a, T> {
-    pub fn update(&self, callback: impl FnOnce(&mut T)) {
-        // self.changes.update_component(self.entity, callback);
+    pub fn modify(&self, f: impl FnOnce(&mut T)) {
     }
 }
 

@@ -1,7 +1,7 @@
 use quote::quote;
 use syn::{File, parse2};
-use pretty::pretty_print_expr;
-use reactex_macro_core::pretty;
+use lab_helper::print;
+use reactex_macro_core::lab_helper;
 
 fn main() {
     let attr = quote!{
@@ -13,5 +13,5 @@ fn main() {
         }
     };
     let result = reactex_macro_core::on_signal::on_signal(attr, item);
-    println!("{}", pretty_print_expr(result));
+    println!("{}", print(result));
 }

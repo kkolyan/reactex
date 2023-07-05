@@ -1,10 +1,11 @@
+#![feature(stmt_expr_attributes)]
+#![feature(proc_macro_hygiene)]
 use proc_macro2::TokenStream;
 
 pub mod common;
 pub mod on_signal;
 pub mod query;
-pub mod modify;
-pub mod pretty;
+pub mod lab_helper;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -20,8 +21,6 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
-
-
 
 pub fn on_signal_global(attr: TokenStream, item: TokenStream) -> TokenStream {
     item

@@ -1,20 +1,29 @@
 use std::ops::Deref;
 
 use quote::ToTokens;
-use syn::{AngleBracketedGenericArguments, Block, Error, Expr, ExprClosure, FnArg, GenericArgument, Ident, parse_quote, Pat, PathArguments, PatIdent, PatType, Token, Type, TypePath};
+use syn::{AngleBracketedGenericArguments, Block, Error, Expr, ExprClosure, FnArg, GenericArgument, Ident, parse_quote, Pat, PathArguments, PatIdent, PatType, Stmt, Token, Type, TypePath};
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::Comma;
+use syn::token::{Comma, Token};
+
+pub struct ExprListParse {
+    pub exprs: Punctuated<Expr, Token!(,)>
+}
+
+impl Parse for ExprListParse {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(ExprListParse {exprs: Punctuated::<Expr, Token!(,)>::parse_separated_nonempty(input)? })
+    }
+}
 
 pub struct CtxClosureParse {
     pub ctx: Ident,
     pub closure: ExprClosure,
 }
 
-impl Parse for CtxClosureParse {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let args = Punctuated::<Expr, Token!(,)>::parse_terminated(input)?;
+impl CtxClosureParse {
+    pub fn parse_from_list(args: Punctuated<Expr, Token!(,)>) -> syn::Result<Self> {
         let args: Vec<_> = args.into_iter().collect();
         if args.len() > 2 {
             return Err(Error::new(Span::call_site(), "two arguments expected"));
@@ -22,6 +31,11 @@ impl Parse for CtxClosureParse {
         let first_tow_args: [_; 2] = args.try_into().map_err(|_| Error::new(Span::call_site(), "two arguments expected"))?;
 
         let [ctx, closure] = first_tow_args;
+
+        Self::parse(ctx, Stmt::Expr(closure, None))
+    }
+
+    pub fn parse(ctx: Expr, closure: Stmt) -> Result<CtxClosureParse, Error> {
         let ctx = if let Expr::Path(ctx) = ctx {
             if ctx.path.segments.len() != 1 {
                 Err(1)
@@ -37,7 +51,7 @@ impl Parse for CtxClosureParse {
             format!("first argument should be identifier of a Ctx or SignalCtx parameter. error_code: {}", err),
         ))?;
 
-        let closure = if let Expr::Closure(closure) = closure {
+        let closure = if let Stmt::Expr(Expr::Closure(closure), _) = closure {
             closure
         } else {
             return Err(Error::new(Span::call_site(), "second argument should be a closure"));
@@ -160,7 +174,7 @@ pub fn generate_entity_arg() -> (PatType, Ident) {
     (pat_type, ident)
 }
 
-pub fn generate_filter_vec(components: Vec<Component>, registry: &Expr) -> Punctuated<Expr, Comma> {
+pub fn generate_filter_vec(components: &Vec<Component>, registry: &Expr) -> Punctuated<Expr, Comma> {
     let mut filter_vec: Punctuated<Expr, Token![,]> = Punctuated::new();
     for component in components.iter() {
         let component_type = &component.ty;
