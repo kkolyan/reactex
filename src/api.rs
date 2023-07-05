@@ -40,6 +40,10 @@ impl WorldState {
     pub fn get_component<T: GetRef + 'static>(&self, entity_key: Entity) -> Option<&T> {
         Some(T::get())
     }
+
+    pub fn get_component_for_mut<'a, T: GetRef + 'static>(&self, entity_key: Entity) -> Option<Mut<'a, T>> {
+        Some(Mut { entity: entity_key, value: T::get() })
+    }
 }
 
 impl ComponentTypeAware for WorldState {
@@ -83,20 +87,25 @@ impl WorldChanges {
 
 pub trait ComponentWriter {}
 
-pub struct GlobalCtx<'a> {
-    pub state: &'a WorldState,
-    pub changes: &'a WorldChanges,
+fn dodo() {
+    let ctx : Ctx = todo!();
 }
 
-pub struct EntityCtx<'a> {
+pub struct Ctx<'a, T = ()> {
     pub state: &'a WorldState,
     pub changes: &'a mut WorldChanges,
-    pub entity: Entity,
+    pub signal: &'a T,
 }
 
 pub struct Mut<'a, T> {
     entity: Entity,
-    value: &'a T
+    value: &'a T,
+}
+
+impl <'a, T> Mut<'a, T> {
+    pub fn update(&self, callback: impl FnOnce(&mut T)) {
+        // self.changes.update_component(self.entity, callback);
+    }
 }
 
 impl <'a, T> Deref for Mut<'a, T> {
@@ -146,10 +155,10 @@ impl ConfigurablePipeline {
     pub fn new() -> Self {
         ConfigurablePipeline {}
     }
-    pub fn add_global_signal_handler<T>(&mut self, callback: impl Fn(&T, GlobalCtx)) {todo!()}
-    pub fn add_entity_signal_handler<TSignal>(&mut self, filter_key: FilterKey, callback: impl Fn(&TSignal, EntityCtx)) {todo!()}
-    pub fn add_entity_appear_handler<T>(&mut self, filter_key: FilterKey, callback: impl Fn(EntityCtx)) {todo!()}
-    pub fn add_entity_disappear_handler<T>(&mut self, filter_key: FilterKey, callback: impl Fn(EntityCtx)) {todo!()}
+    pub fn add_global_signal_handler<TSignal>(&mut self, callback: impl Fn(Ctx<TSignal>)) {todo!()}
+    pub fn add_entity_signal_handler<TSignal>(&mut self, filter_key: FilterKey, callback: impl Fn(Ctx<TSignal>, Entity)) {todo!()}
+    pub fn add_entity_appear_handler(&mut self, filter_key: FilterKey, callback: impl Fn(Ctx, Entity)) {todo!()}
+    pub fn add_entity_disappear_handler(&mut self, filter_key: FilterKey, callback: impl Fn(Ctx, Entity)) {todo!()}
     pub fn complete_configuration(self) -> ExecutablePipeline {
         todo!()
     }
@@ -195,7 +204,7 @@ impl<T: 'static> IntoFilterKey for (T, ) {
     }
 }
 
-impl ComponentTypeAware for EntityCtx<'_> {
+impl <S> ComponentTypeAware for Ctx<'_, S> {
     fn get_component_type<T: 'static>(&self) -> ComponentType {
         self.state.get_component_type::<T>()
     }

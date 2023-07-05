@@ -68,46 +68,13 @@ fn main() {
 
 static DEMO: RwLock<Module> = RwLock::new(Module::new());
 
-#[on_signal(DEMO)]
-fn update_explosion(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
-
-    // without macros
-    ctx.state.query(
-        &<(Health, Position)>::create_filter_key(ctx.state),
-        |victim| {
-            let victim_pos = ctx.state.get_component::<Position>(victim).unwrap();
-            if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-                ctx.changes.update_component::<Health>(victim, |health| {
-                    health.health -= explosion.damage;
-                });
-                // modify!(ctx, || health.health -= explosion.damage )
-            }
-        },
-    );
-
-    // with macros 1
-    query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
-        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-
-            ctx.changes.update_mut_wrapper(&health, |health| { health.health -= explosion.damage; });
-        }
-    });
-
-    // with macros 2
-    query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
-        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-            modify!(ctx, || health.health -= explosion.damage )
-        }
-    });
-}
-
 //noinspection DuplicatedCode
 #[on_signal(DEMO)]
-fn update_explosion1(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
+fn update_explosion(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
     // with macros 2
     query!(ctx, |victim_pos: &Position, health: Mut<Health>| {
         if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-            modify!(ctx, || health.health -= explosion.damage )
+            modify!(ctx, || health.health -= explosion.damage );
         }
     });
 }
