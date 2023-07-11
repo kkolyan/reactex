@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 reactex-macro = { path = "reactex-macro"}
 ctor = "0.2.3"
+libc = "0.2.147"
