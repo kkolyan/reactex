@@ -1,81 +1,29 @@
+use std::fmt::Debug;
+
+use ctor::ctor;
+
 use reactex_core::ecs_component;
-use reactex_core::entity::EntityKey;
-use reactex_core::lang::ref_map_result_option;
 use reactex_core::world::EntityError;
 use reactex_core::world::World;
 use reactex_core::world::WorldError;
-use reactex_core::world::WorldResult;
-use reactex_core::StaticComponentType;
-use std::cell::Ref;
-use std::cell::RefCell;
-use std::fmt::Debug;
-use std::fs;
-use std::rc::Rc;
-use ctor::ctor;
-use log::info;
 
 #[derive(Default, Debug)]
 struct A {
     value: i32,
 }
-
 ecs_component! {A}
 
-struct Entity {
-    key: EntityKey,
-    world: Rc<RefCell<World>>,
+#[derive(Default, Debug)]
+struct X {
+    value: i32,
 }
+ecs_component! {X}
 
-impl Entity {
-    pub(crate) fn destroy_entity(&self) -> WorldResult {
-        self.world.borrow_mut().destroy_entity(self.key)
-    }
+#[derive(Default, Debug)]
+struct Y {
+    value: i32,
 }
-
-impl Entity {}
-
-impl Entity {
-    fn exists(&self) -> bool {
-        self.world.borrow_mut().entity_exists(self.key)
-    }
-
-    fn has<T: StaticComponentType>(&self) -> WorldResult<bool> {
-        self.world.borrow().has_component::<T>(self.key)
-    }
-    fn add<T: StaticComponentType>(&self, value: T) -> WorldResult {
-        self.world.borrow_mut().add_component::<T>(self.key, value)
-    }
-    fn get<T: StaticComponentType>(&self) -> WorldResult<Option<Ref<T>>> {
-        ref_map_result_option(self.world.borrow(), |it| it.get_component::<T>(self.key))
-    }
-    fn remove<T: StaticComponentType>(&self) -> WorldResult {
-        self.world.borrow_mut().remove_component::<T>(self.key)
-    }
-
-    fn modify<T: StaticComponentType>(&self, action: impl FnOnce(&mut T) + 'static) -> WorldResult {
-        self.world
-            .borrow_mut()
-            .modify_component(self.key, Box::new(action))
-    }
-}
-
-trait TestWorld {
-    fn new_entity(&self) -> Entity;
-    fn execute_all(&self);
-}
-
-impl TestWorld for Rc<RefCell<World>> {
-    fn new_entity(&self) -> Entity {
-        Entity {
-            key: self.borrow_mut().create_entity(),
-            world: self.clone(),
-        }
-    }
-
-    fn execute_all(&self) {
-        self.borrow_mut().execute_all();
-    }
-}
+ecs_component! {Y}
 
 #[ctor]
 fn init_logging() {
@@ -83,123 +31,146 @@ fn init_logging() {
     println!("test started");
 }
 
-fn create_world() -> Rc<RefCell<World>> {
-    Rc::new(RefCell::new(World::new()))
-}
-
 #[test]
 fn entity_exists_immediately() {
-    let world = create_world();
-    assert!(world.new_entity().exists());
+    let mut world = create_world();
+    let entity = world.create_entity();
+    assert!(world.entity_exists(entity));
+}
+
+fn create_world() -> World {
+    let mut world = World::new();
+
+    // just noise to avoid false positives due to zero indexes or absence of interference
+
+    world.create_entity();
+    {
+        let entity = world.create_entity();
+        world.add_component(entity, X { value: 0 }).unwrap();
+    }
+    {
+        let entity = world.create_entity();
+        world.add_component(entity, Y { value: 0 }).unwrap();
+    }
+    {
+        let entity = world.create_entity();
+        world.add_component(entity, X { value: 0 }).unwrap();
+        world.add_component(entity, Y { value: 0 }).unwrap();
+    }
+
+    world
 }
 
 #[test]
 fn entity_could_be_deleted_immediately() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.destroy_entity().unwrap();
-    assert!(!entity.exists());
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.destroy_entity(entity).unwrap();
+    assert!(!world.entity_exists(entity));
 }
 
 #[test]
 fn component_can_be_added_to_uncommitted_entity() {
-    let world = create_world();
-    world.new_entity().add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
 }
 
 #[test]
 fn component_cannot_be_deleted_from_uncommitted_entity() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     assert_eq!(
-        entity.remove::<A>(),
+        world.remove_component::<A>(entity),
         Err(WorldError::Entity(EntityError::NotCommitted))
     )
 }
 
 #[test]
 fn component_cannot_be_checked_on_uncommitted_entity() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     assert_eq!(
-        entity.has::<A>(),
+        world.has_component::<A>(entity),
         Err(WorldError::Entity(EntityError::NotCommitted))
     );
 }
 
 #[test]
 fn component_cannot_be_read_on_uncommitted_entity() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     assert_eq!(
-        entity.get::<A>().unwrap_err(),
+        world.get_component::<A>(entity).unwrap_err(),
         WorldError::Entity(EntityError::NotCommitted)
     )
 }
 
 #[test]
 fn component_checked_after_commit() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     world.execute_all();
 
-    assert!(entity.has::<A>().unwrap());
+    assert!(world.has_component::<A>(entity).unwrap());
 }
 
 #[test]
 fn component_state_available_after_commit() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A { value: 42 }).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A { value: 42 }).unwrap();
     world.execute_all();
 
-    assert_eq!(entity.get::<A>().unwrap().unwrap().value, 42);
+    assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 42);
 }
 
 #[test]
 fn component_state_change_visible_between_reads() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     world.execute_all();
 
-    entity.modify::<A>(|it| it.value = 42).unwrap();
+    world
+        .modify_component::<A>(entity, |it| it.value = 42)
+        .unwrap();
 
-    assert_eq!(entity.get::<A>().unwrap().unwrap().value, 42);
+    assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 42);
 }
 
 #[test]
 fn component_delete_uncommitted_not_visible() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     world.execute_all();
-    entity.remove::<A>().unwrap();
-    assert!(entity.has::<A>().unwrap());
+    world.remove_component::<A>(entity).unwrap();
+    assert!(world.has_component::<A>(entity).unwrap());
 }
 
 #[test]
 fn component_delete_visible_after_commit() {
-    let world = create_world();
-    let entity = world.new_entity();
-    entity.add(A::default()).unwrap();
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
     world.execute_all();
-    entity.remove::<A>().unwrap();
+    world.remove_component::<A>(entity).unwrap();
     world.execute_all();
-    assert!(!entity.has::<A>().unwrap());
+    assert!(!world.has_component::<A>(entity).unwrap());
 }
 
 #[test]
 fn component_add_delete_visible_after_commit() {
-    let world = create_world();
-    let entity = world.new_entity();
+    let mut world = create_world();
+    let entity = world.create_entity();
     world.execute_all();
-    entity.add(A::default()).unwrap();
-    entity.remove::<A>().unwrap();
+    world.add_component(entity, A::default()).unwrap();
+    world.remove_component::<A>(entity).unwrap();
     world.execute_all();
-    assert!(!entity.has::<A>().unwrap());
+    assert!(!world.has_component::<A>(entity).unwrap());
 }

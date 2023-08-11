@@ -205,7 +205,7 @@ impl World {
     pub fn modify_component<T: StaticComponentType>(
         &mut self,
         entity: EntityKey,
-        change: Box<dyn FnOnce(&mut T)>,
+        change: impl FnOnce(&mut T),
     ) -> WorldResult {
         let entity = entity
             .validate(&self.entity_storage, DenyUncommitted)?
@@ -217,7 +217,7 @@ impl World {
         let value = self
             .get_component_data_mut()
             .get_mut(&data)
-            .ok_or_else(|| ComponentError::NotFound(Data))?;
+            .ok_or(ComponentError::NotFound(Data))?;
         change(value);
         Ok(())
     }
@@ -308,10 +308,11 @@ impl World {
         &self,
         entity: EntityIndex,
     ) -> Option<&T> {
-        let data_by_entity = self.component_mappings.get(&T::get_component_type())?;
-        let data = data_by_entity.get(&entity)?;
-        let pool = self.get_component_data::<T>()?;
-        let instance = pool.get(data);
+        let data = self
+            .component_mappings
+            .get(&T::get_component_type())?
+            .get(&entity)?;
+        let instance = self.get_component_data::<T>()?.get(data);
         trace!("component found: {:?}", instance);
         instance
     }
@@ -604,7 +605,7 @@ trait StepAction {
 struct InvokeSignalHandler;
 
 impl StepAction for InvokeSignalHandler {
-    fn execute(world: &mut World, ctx: &mut ExecutionContext) {}
+    fn execute(_world: &mut World, _ctx: &mut ExecutionContext) {}
 
     fn get_name() -> &'static str {
         "InvokeSignalHandler"

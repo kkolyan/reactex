@@ -7,7 +7,7 @@ pub struct Mut<'a, T> {
 }
 
 impl<'a, T> Mut<'a, T> {
-    pub fn modify(&self, f: impl FnOnce(&mut T)) {}
+    pub fn modify(&self, _: impl FnOnce(&mut T)) {}
 }
 
 impl<'a, T> Deref for Mut<'a, T> {
