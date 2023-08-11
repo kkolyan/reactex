@@ -1,11 +1,5 @@
-[package]
-name = "reactex"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-reactex-macro = { path = "reactex-macro"}
-ctor = "0.2.3"
-libc = "0.2.147"
+[workspace]
+members = [
+    "reactex-core",
+    "lab"
+]

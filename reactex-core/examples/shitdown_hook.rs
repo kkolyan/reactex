@@ -1,13 +1,17 @@
-use std::cell::{Cell, RefCell};
+use ctor::dtor;
+use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io::Write;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
+use std::net::TcpStream;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::RwLock;
 use std::thread::sleep;
 use std::time::Duration;
-use ctor::dtor;
 
 #[dtor]
 fn tear_down() {
@@ -52,7 +56,7 @@ fn main() {
         loop {
             println!("main: waits");
             // if let AppStatus::TearDownRequested = *status.lock().unwrap() {
-                // break
+            // break
             // }
             sleep(Duration::from_secs_f32(1.0));
         }

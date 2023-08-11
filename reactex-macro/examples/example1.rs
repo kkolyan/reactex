@@ -1,8 +1,12 @@
 use std::ops::Deref;
-use syn::{ExprClosure, FnArg, ItemFn, parse_quote, Pat, Type};
+use syn::parse_quote;
+use syn::ExprClosure;
+use syn::FnArg;
+use syn::ItemFn;
+use syn::Pat;
+use syn::Type;
 
 fn main() {
-
     let fn_ast: ItemFn = parse_quote! {
         fn update_explosion(ctx: SignalCtx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {}
     };
@@ -11,13 +15,18 @@ fn main() {
         |ctx: SignalCtx<Update>, explosion: &Explosion, exp_pos: Mut<Position>| {}
     };
 
-    let fn_inputs: Vec<_> = fn_ast.sig.inputs.iter()
+    let fn_inputs: Vec<_> = fn_ast
+        .sig
+        .inputs
+        .iter()
         .map(|it| match it {
             FnArg::Receiver(_) => panic!("receiver!"),
             FnArg::Typed(it) => it,
         })
         .collect();
-    let cl_inputs: Vec<_> = cl_ast.inputs.iter()
+    let cl_inputs: Vec<_> = cl_ast
+        .inputs
+        .iter()
         .map(|it| match it {
             Pat::Type(it) => it,
             _ => panic!(),

@@ -9,4 +9,4 @@ proc-macro = true
 [dependencies]
 syn = { version = "2.0.23", features = ["full"] }
 quote = "1.0.21"
-reactex-macro-core = { path = "reactex-macro-core" }
+reactex-macro-core = { path = "../reactex-macro-core" }

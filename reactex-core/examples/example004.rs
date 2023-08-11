@@ -3,9 +3,16 @@
 
 use std::sync::RwLock;
 
-use reactex::api::*;
+use reactex_core::api::ConfigurablePipeline;
+use reactex_core::api::GetRef;
+use reactex_core::api::Module;
+use reactex_core::api::WorldChanges;
+use reactex_core::api::*;
+use reactex_core::ctx::Ctx;
+use reactex_core::entity::EntityKey;
+use reactex_core::mut_ref::Mut;
+use reactex_core::world_state::WorldState;
 use reactex_macro::*;
-
 
 struct Explosion {
     damage: f32,
@@ -14,7 +21,10 @@ struct Explosion {
 
 impl GetRef for Explosion {
     fn get() -> &'static Self {
-        static x: Explosion = Explosion { damage: 0.0, range: 0.0 };
+        static x: Explosion = Explosion {
+            damage: 0.0,
+            range: 0.0,
+        };
         &x
     }
 }
@@ -25,9 +35,7 @@ struct Health {
 }
 
 impl Health {
-    fn heal(&mut self) {
-
-    }
+    fn heal(&mut self) {}
 }
 
 struct Statuses {
@@ -50,7 +58,13 @@ impl GetRef for Position {
 
 impl GetRef for Health {
     fn get() -> &'static Self {
-        static x: Health = Health { health: 0.0, status: Statuses { drunk: false, dead: false } };
+        static x: Health = Health {
+            health: 0.0,
+            status: Statuses {
+                drunk: false,
+                dead: false,
+            },
+        };
         &x
     }
 }
@@ -76,11 +90,17 @@ fn main() {
     //     sleep(Duration::from_secs_f32(1.0));
     // }
 
-    update_explosion(Ctx {
-        state: &WorldState {},
-        changes: &mut WorldChanges {},
-        signal: &Update {},
-    }, Entity { index: 0, generation: 0 });
+    update_explosion(
+        Ctx {
+            state: &WorldState {},
+            changes: &mut WorldChanges {},
+            signal: &Update {},
+        },
+        EntityKey {
+            internal: 0,
+            generation: 0,
+        },
+    );
 }
 
 static DEMO: RwLock<Module> = RwLock::new(Module::new());
@@ -91,7 +111,9 @@ fn update_explosion(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Positi
     // with macros 2
     #[query(ctx)]
     |victim_pos: &Position, health: Mut<Health>| {
-        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
+        if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2)
+            < explosion.range.powi(2)
+        {
             health.modify(|it| it.health -= explosion.damage);
             health.modify(|it| it.heal());
             health.modify(|it| it.status.dead = true);
@@ -101,15 +123,12 @@ fn update_explosion(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Positi
 
 //noinspection DuplicatedCode
 #[on_signal_global(DEMO)]
-fn update_all(ctx: Ctx<Update>) {
-}
+fn update_all(ctx: Ctx<Update>) {}
 
 //noinspection DuplicatedCode
 #[on_appear(DEMO)]
-fn on_explosion_appear(ctx: Ctx, explosion: &Explosion, exp_pos: Mut<Position>) {
-}
+fn on_explosion_appear(ctx: Ctx, explosion: &Explosion, exp_pos: Mut<Position>) {}
 
 //noinspection DuplicatedCode
 #[on_disappear(DEMO)]
-fn on_explosion_disappear(ctx: Ctx, explosion: &Explosion, exp_pos: Mut<Position>) {
-}
+fn on_explosion_disappear(ctx: Ctx, explosion: &Explosion, exp_pos: Mut<Position>) {}

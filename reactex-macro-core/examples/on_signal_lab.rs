@@ -1,13 +1,14 @@
-use quote::quote;
-use syn::{File, parse2};
 use lab_helper::print;
+use quote::quote;
 use reactex_macro_core::lab_helper;
+use syn::parse2;
+use syn::File;
 
 fn main() {
-    let attr = quote!{
+    let attr = quote! {
         SOME_USER_MODULE
     };
-    let item = quote!{
+    let item = quote! {
         fn some_user_function(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
             some_user_code();
         }

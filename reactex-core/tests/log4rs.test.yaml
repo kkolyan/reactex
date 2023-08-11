@@ -1,0 +1,10 @@
+appenders:
+  stdout:
+    kind: console
+root:
+  level: info
+  appenders:
+    - stdout
+loggers:
+  reactex-core:
+    level: trace
