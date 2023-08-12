@@ -22,16 +22,17 @@ pub mod world;
 pub mod world_state;
 
 pub trait StaticComponentType: Debug + 'static {
+    const INDEX: u16;
+    const NAME: &'static str;
+
     fn get_component_type() -> ComponentType {
-        ComponentType {
-            type_id: TypeId::of::<Self>(),
-        }
+        ComponentType { index: Self::INDEX }
     }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ComponentType {
-    type_id: TypeId,
+    index: u16,
 }
 
 #[derive(Clone)]

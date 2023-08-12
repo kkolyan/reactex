@@ -1,4 +1,5 @@
 use crate::entity::EntityIndex;
+use crate::lang::boxed_slice;
 use crate::ComponentType;
 use crate::StaticComponentType;
 
@@ -11,17 +12,19 @@ pub(crate) struct EntityComponentIndex {
 #[derive(Debug)]
 struct NoType;
 
-impl StaticComponentType for NoType {}
+impl StaticComponentType for NoType {
+    const INDEX: u16 = 0;
+    const NAME: &'static str = concat!(module_path!(), "::NoType");
+}
 
 impl EntityComponentIndex {
     pub fn new(initial_capacity: usize, initial_component_types_width: usize) -> Self {
         EntityComponentIndex {
-            component_count: vec![0; initial_capacity].into_boxed_slice(),
-            component_types: vec![
-                NoType::get_component_type();
-                initial_capacity * initial_component_types_width
-            ]
-            .into_boxed_slice(),
+            component_count: boxed_slice(0, initial_capacity),
+            component_types: boxed_slice(
+                NoType::get_component_type(),
+                initial_capacity * initial_component_types_width,
+            ),
             component_types_width: initial_component_types_width,
         }
     }

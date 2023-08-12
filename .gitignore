@@ -3,3 +3,4 @@
 /reactex-macro/target
 /reactex-macro-core/target
 Cargo.lock
+.derive_ecs_component.*.txt
