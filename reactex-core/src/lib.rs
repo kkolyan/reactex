@@ -29,19 +29,6 @@ pub trait StaticComponentType: Debug + 'static {
     }
 }
 
-#[macro_export]
-macro_rules! ecs_component {
-    ($ty:ty) => {
-        impl reactex_core::StaticComponentType for $ty {
-            // fn get_component_type() -> reactex_core::ComponentType {
-            //     todo!()
-            //     // static INDEX: usize = reactex_core::component_index::next_component_index();
-            //     // reactex_core::ComponentType { index: INDEX }
-            // }
-        }
-    };
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ComponentType {
     type_id: TypeId,

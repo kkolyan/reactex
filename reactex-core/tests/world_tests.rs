@@ -2,28 +2,25 @@ use std::fmt::Debug;
 
 use ctor::ctor;
 
-use reactex_core::ecs_component;
 use reactex_core::world::EntityError;
 use reactex_core::world::World;
 use reactex_core::world::WorldError;
+use reactex_macro::EcsComponent;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, EcsComponent)]
 struct A {
     value: i32,
 }
-ecs_component! {A}
 
-#[derive(Default, Debug)]
+#[derive(Debug, EcsComponent)]
 struct X {
     value: i32,
 }
-ecs_component! {X}
 
-#[derive(Default, Debug)]
+#[derive(Debug, EcsComponent)]
 struct Y {
     value: i32,
 }
-ecs_component! {Y}
 
 #[ctor]
 fn init_logging() {

@@ -49,3 +49,8 @@ pub fn on_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
+
+#[proc_macro_derive(EcsComponent)]
+pub fn derive_ecs_component(item: TokenStream) -> TokenStream {
+    reactex_macro_core::derive_ecs_component(item.into()).into()
+}

@@ -1,4 +1,4 @@
-use lab_helper::print;
+use lab_helper::print_expression;
 use quote::quote;
 use reactex_macro_core::lab_helper;
 
@@ -16,5 +16,5 @@ fn main() {
         };
     };
     let result = reactex_macro_core::query::query_attr(attr, item);
-    println!("{}", print(result));
+    println!("{}", print_expression(result));
 }
