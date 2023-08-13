@@ -12,19 +12,24 @@ pub struct TiVec<K, T> {
 
 impl<K, T> TiVec<K, T> {
     pub(crate) fn new() -> TiVec<K, T> {
-        TiVec { pd: Default::default(), inner: vec![] }
+        TiVec {
+            pd: Default::default(),
+            inner: vec![],
+        }
     }
 }
 
 impl<K, V> TiVec<K, V> {
     pub fn get_mut(&mut self, key: &K) -> Option<&mut V>
-        where K: TiVecKey
+    where
+        K: TiVecKey,
     {
         self.inner.get_mut(key.as_index())
     }
 
     pub fn push_with_key(&mut self, f: impl FnOnce(&K) -> V) -> K
-        where K: TiVecKey
+    where
+        K: TiVecKey,
     {
         let key = K::from_index(self.inner.len());
         self.inner.push(f(&key));

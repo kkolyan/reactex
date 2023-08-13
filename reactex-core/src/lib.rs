@@ -15,9 +15,9 @@ pub mod opt_tiny_vec;
 pub mod optimistic_list;
 mod pools;
 mod signal_manager;
+mod typed_index_vec;
 pub mod world;
 pub mod world_state;
-mod typed_index_vec;
 
 pub trait StaticComponentType: Debug + 'static {
     const INDEX: u16;
@@ -36,15 +36,17 @@ const fn component_type_gt(a: ComponentType, b: ComponentType) -> bool {
     a.index > b.index
 }
 
-pub const fn sort_component_types<const N: usize>(mut arr: [ComponentType; N]) -> [ComponentType; N] {
+pub const fn sort_component_types<const N: usize>(
+    mut arr: [ComponentType; N],
+) -> [ComponentType; N] {
     loop {
         let mut swapped = false;
         let mut i = 1;
         while i < arr.len() {
-            if component_type_gt(arr[i-1], arr[i]) {
-                let left = arr[i-1];
+            if component_type_gt(arr[i - 1], arr[i]) {
+                let left = arr[i - 1];
                 let right = arr[i];
-                arr[i-1] = right;
+                arr[i - 1] = right;
                 arr[i] = left;
                 swapped = true;
             }

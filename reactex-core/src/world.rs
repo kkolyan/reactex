@@ -1,5 +1,6 @@
-use crate::entity::{EntityIndex, InternalEntityKey};
+use crate::entity::EntityIndex;
 use crate::entity::EntityKey;
+use crate::entity::InternalEntityKey;
 use crate::entity_component_index::EntityComponentIndex;
 use crate::entity_storage::EntityStorage;
 use crate::entity_storage::ValidateUncommitted::AllowUncommitted;
@@ -7,8 +8,12 @@ use crate::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::execution::ExecutionContext;
 use crate::execution::Step;
 use crate::execution::StepImpl;
-use crate::filter_manager::{ComponentAddKey, ComponentChangeKey, ComponentRemoveKey};
+use crate::filter_manager::ComponentAddKey;
+use crate::filter_manager::ComponentChangeKey;
+use crate::filter_manager::ComponentRemoveKey;
+use crate::filter_manager::FilterIter;
 use crate::filter_manager::FilterManager;
+use crate::filter_manager::InternalFilterKey;
 use crate::opt_tiny_vec::OptTinyVec;
 use crate::pools::AbstractPool;
 use crate::pools::PoolKey;
@@ -24,7 +29,6 @@ use log::trace;
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::mem;
 use std::rc::Rc;
@@ -38,32 +42,58 @@ pub struct World {
     components_to_delete: DeleteQueue,
     components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
     component_data_pools: HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
-    component_mappings: HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
+    component_mappings: ComponentMappings,
     current_cause: Cause,
     filter_manager: FilterManager,
     sequence: Vec<Step>,
-    on_appear: HashMap<FilterKey, Vec<EventHandler>>,
-    on_disappear: HashMap<FilterKey, Vec<EventHandler>>,
+    on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
+    on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
     signals: VecDeque<Signal>,
 }
 
+#[derive(Default)]
+pub struct ComponentMappings {
+    component_mappings: HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
+}
 
-impl World {
-    pub(crate) fn get_component_types(&self, entity: InternalEntityKey) -> impl Iterator<Item=ComponentType> + '_ {
-        self.entity_component_index.get_component_types(entity.index)
+impl ComponentMappings {
+    pub(crate) fn has_component_no_validation(
+        &self,
+        entity: EntityIndex,
+        component_type: ComponentType,
+    ) -> bool {
+        self.component_mappings
+            .get(&component_type)
+            .map(|it| it.contains_key(&entity))
+            .unwrap_or(false)
     }
 }
 
 impl World {
-    pub(crate) fn get_all_entities(&self) -> impl Iterator<Item=InternalEntityKey> + '_ {
+    pub(crate) fn get_component_types(
+        &self,
+        entity: InternalEntityKey,
+    ) -> impl Iterator<Item = ComponentType> + '_ {
+        self.entity_component_index
+            .get_component_types(entity.index)
+    }
+}
+
+impl World {
+    pub(crate) fn get_all_entities(&self) -> impl Iterator<Item = InternalEntityKey> + '_ {
         self.entity_storage.get_all()
     }
 }
 
 impl World {
     pub fn query(&mut self, filter: FilterKey, mut callback: impl FnMut(EntityKey)) {
-        for matched_entity in self.filter_manager.get_filter(filter).track_matched_entities().iter().copied() {
+        for matched_entity in self
+            .filter_manager
+            .get_filter(filter)
+            .track_matched_entities(&self.entity_storage, &self.component_mappings)
+            .iter()
+        {
             callback(matched_entity.export());
         }
     }
@@ -263,8 +293,7 @@ impl World {
         entity: EntityKey,
         component: T,
     ) -> WorldResult {
-        let entity = entity
-            .validate(&self.entity_storage, AllowUncommitted)?;
+        let entity = entity.validate(&self.entity_storage, AllowUncommitted)?;
 
         let data = self.get_component_data_mut::<T>().add(component);
 
@@ -282,8 +311,7 @@ impl World {
     }
 
     pub fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey) -> WorldResult {
-        let entity = entity
-            .validate(&self.entity_storage, DenyUncommitted)?;
+        let entity = entity.validate(&self.entity_storage, DenyUncommitted)?;
 
         let removed = self
             .components_to_add
@@ -313,20 +341,10 @@ impl World {
             .index;
         Ok(self
             .component_mappings
+            .component_mappings
             .get(&T::get_component_type())
             .map(|it| it.contains_key(&entity))
             .unwrap_or(false))
-    }
-
-    pub(crate) fn has_component_no_validation(
-        &self,
-        entity: EntityIndex,
-        component_type: ComponentType,
-    ) -> bool {
-        self.component_mappings
-            .get(&component_type)
-            .map(|it| it.contains_key(&entity))
-            .unwrap_or(false)
     }
 
     pub fn get_component<T: StaticComponentType>(
@@ -344,6 +362,7 @@ impl World {
         entity: EntityIndex,
     ) -> Option<&T> {
         let data = self
+            .component_mappings
             .component_mappings
             .get(&T::get_component_type())?
             .get(&entity)?;
@@ -363,14 +382,17 @@ impl World {
     }
 
     pub fn destroy_entity(&mut self, entity: EntityKey) -> WorldResult {
-        let entity = entity
-            .validate(&self.entity_storage, AllowUncommitted)?;
+        let entity = entity.validate(&self.entity_storage, AllowUncommitted)?;
         if self.entity_storage.is_not_committed(entity.index) {
             // destroy entity and attached components immediately, because they are non committed yet
-            for component_type in self.entity_component_index.get_component_types(entity.index) {
+            for component_type in self
+                .entity_component_index
+                .get_component_types(entity.index)
+            {
                 Self::remove_component_immediate(
                     &mut self.component_data_pools,
-                    &mut self.component_mappings, component_type,
+                    &mut self.component_mappings,
+                    component_type,
                     entity.index,
                 )
             }
@@ -393,12 +415,14 @@ impl World {
 
     fn remove_component_immediate(
         component_data_pools: &mut HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
-        mappings: &mut HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
+        mappings: &mut ComponentMappings,
         component_type: ComponentType,
         entity_index: EntityIndex,
     ) {
-        let table: &mut HashMap<EntityIndex, ComponentDataKey> =
-            mappings.get_mut(&component_type).unwrap();
+        let table: &mut HashMap<EntityIndex, ComponentDataKey> = mappings
+            .component_mappings
+            .get_mut(&component_type)
+            .unwrap();
         let data = table.remove(&entity_index).unwrap();
         component_data_pools
             .get_mut(&component_type)
@@ -430,7 +454,10 @@ impl World {
         &mut self,
         component_type: ComponentType,
     ) -> &mut HashMap<EntityIndex, ComponentDataKey> {
-        self.component_mappings.entry(component_type).or_default()
+        self.component_mappings
+            .component_mappings
+            .entry(component_type)
+            .or_default()
     }
 
     fn flush_entity_create_actions(&mut self) {
@@ -465,18 +492,66 @@ impl World {
             );
 
             self.filter_manager.on_component_added(
-                |entity| self.entity_component_index.get_component_types(entity.index),
+                &self.entity_component_index,
                 ComponentAddKey {
                     component_key,
                     causes,
-                });
+                },
+            );
         }
     }
 
     fn invoke_disappear_handlers(&mut self) {
-        todo!()
+        invoke_handlers(
+            self.filter_manager.take_with_new_disappear_events(),
+            &mut self.on_disappear,
+            &mut self.current_cause,
+            ComponentEventType::Disappear,
+        );
     }
 
+    fn invoke_appear_handlers(&mut self) {
+        invoke_handlers(
+            self.filter_manager.take_with_new_appear_events(),
+            &mut self.on_appear,
+            &mut self.current_cause,
+            ComponentEventType::Appear,
+        );
+    }
+}
+
+enum ComponentEventType {
+    Appear,
+    Disappear,
+}
+
+fn invoke_handlers(
+    mut filters: FilterIter<impl Iterator<Item = InternalFilterKey>>,
+    handlers: &mut HashMap<InternalFilterKey, Vec<EventHandler>>,
+    current_cause: &mut Cause,
+    event_type: ComponentEventType,
+) {
+    while let Some(filter) = filters.next() {
+        if let Some(handlers) = handlers.get_mut(&filter.unique_key) {
+            for handler in handlers {
+                let events = match event_type {
+                    ComponentEventType::Appear => &mut filter.appear_events,
+                    ComponentEventType::Disappear => &mut filter.disappear_events,
+                };
+                if let Some(events) = events {
+                    for (entity, causes) in events {
+                        let new_cause = current_cause.create_consequence(handler.name.clone());
+                        let prev_cause = mem::replace(current_cause, new_cause);
+                        (handler.callback)(entity.export());
+                        *current_cause = prev_cause;
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl World {
     fn flush_entity_destroy_actions(&mut self) {
         for (entity, causes) in mem::take(&mut self.entities_to_destroy) {
             self.entity_storage.delete_entity_data(entity.index);
@@ -495,18 +570,12 @@ impl World {
 
             self.entity_component_index
                 .delete_component_type(component_key.entity.index, component_key.component_type);
-            self.filter_manager.on_component_removed(ComponentRemoveKey {
-                component_key,
-                causes,
-            })
+            self.filter_manager
+                .on_component_removed(ComponentRemoveKey {
+                    component_key,
+                    causes,
+                })
         }
-    }
-
-    fn invoke_appear_handlers(&mut self) {
-        todo!()
-    }
-    fn generate_appear_events(&mut self) {
-        todo!()
     }
 
     fn generate_disappear_events(&mut self) {
@@ -525,7 +594,10 @@ impl World {
 
     fn schedule_destroyed_entities_component_removal(&mut self) {
         for (entity, causes) in mem::take(&mut self.entities_to_destroy) {
-            for component_type in self.entity_component_index.get_component_types(entity.index) {
+            for component_type in self
+                .entity_component_index
+                .get_component_types(entity.index)
+            {
                 let existing_causes = self
                     .components_to_delete
                     .before_disappear

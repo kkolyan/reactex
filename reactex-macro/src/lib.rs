@@ -77,6 +77,12 @@ fn resolve_module_path() -> Result<String, String> {
         .expand_expr()
         .map_err(|err| err.to_string())?;
     let module_path_literal_parsed =
-        parse::<syn::LitStr>(module_path_literal.clone()).map_err(|err| format!("err: {:?}, source: {}", err.to_string(), module_path_literal))?;
+        parse::<syn::LitStr>(module_path_literal.clone()).map_err(|err| {
+            format!(
+                "err: {:?}, source: {}",
+                err.to_string(),
+                module_path_literal
+            )
+        })?;
     Ok(module_path_literal_parsed.value())
 }

@@ -3,3 +3,4 @@ members = [
     "reactex-core",
     "lab",
 ]
+resolver = "2"
