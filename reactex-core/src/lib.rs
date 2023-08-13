@@ -74,3 +74,26 @@ impl FilterKey {
         FilterKey { component_types }
     }
 }
+
+
+
+#[macro_export]
+macro_rules! count {
+    () => (0usize);
+    ( $x:tt $($xs:tt)* ) => (1usize + count!($($xs)*));
+}
+
+#[macro_export]
+macro_rules! ecs_filter {
+    ($($component_type:ident),*) => {
+        {
+            use $crate::count;
+            const COMPONENTS_SORTED: [$crate::ComponentType; $crate::count!($($component_type)*)]
+                = $crate::sort_component_types(
+                    [$($crate::component_type_of::<$component_type>()),*]
+                );
+            const FILTER_KEY: $crate::FilterKey = $crate::FilterKey::new(&COMPONENTS_SORTED);
+            FILTER_KEY
+        }
+    };
+}

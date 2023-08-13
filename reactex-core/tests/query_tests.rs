@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use reactex_core::ecs_filter;
 use reactex_core::world::World;
 use reactex_macro::EcsComponent;
 
@@ -8,28 +9,6 @@ struct A {}
 
 #[derive(EcsComponent, Debug, Default)]
 struct B {}
-
-fn das() {
-    // FILTER_KEY.with(|it| it)
-}
-
-macro_rules! count {
-    () => (0usize);
-    ( $x:tt $($xs:tt)* ) => (1usize + count!($($xs)*));
-}
-
-macro_rules! ecs_filter {
-    ($($component_type:ident),*) => {
-        {
-            const COMPONENTS_SORTED: [::reactex_core::ComponentType; count!($($component_type)*)]
-                = ::reactex_core::sort_component_types(
-                    [$(::reactex_core::component_type_of::<$component_type>()),*]
-                );
-            const FILTER_KEY: ::reactex_core::FilterKey = ::reactex_core::FilterKey::new(&COMPONENTS_SORTED);
-            FILTER_KEY
-        }
-    };
-}
 
 #[test]
 fn CommittedEntityQueriedByPreCreatedQuery() {

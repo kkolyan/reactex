@@ -58,11 +58,9 @@ pub(crate) struct Filter {
     pub(crate) matched_entities: Option<HashSet<InternalEntityKey>>,
     pub(crate) appear_events: Option<HashMap<InternalEntityKey, OptTinyVec<Cause>>>,
     pub(crate) disappear_events: Option<HashMap<InternalEntityKey, OptTinyVec<Cause>>>,
-    fill: fn(
-        filter: &mut Filter,
-        entity_storage: &EntityStorage,
-        component_mappings: &ComponentMappings,
-    ),
+}
+
+impl Filter {
 }
 
 impl Filter {}
@@ -78,6 +76,18 @@ impl Filter {
             pre_fill_matched_entities(self, entity_storage, component_mappings);
         }
         self.matched_entities.as_mut().unwrap()
+    }
+
+    pub(crate) fn track_appear_events(&mut self) {
+        if self.appear_events.is_none() {
+            self.appear_events = Some(Default::default());
+        }
+    }
+
+    pub(crate) fn track_disappear_events(&mut self) {
+        if self.disappear_events.is_none() {
+            self.disappear_events = Some(Default::default());
+        }
     }
 }
 
@@ -100,6 +110,10 @@ impl FilterManager {
         }
     }
 
+    pub(crate) fn get_filter_internal(&mut self, key: InternalFilterKey) -> &mut Filter {
+        self.owned.get_mut(&key).unwrap()
+    }
+
     pub(crate) fn get_filter(&mut self, key: FilterKey) -> &mut Filter {
         let key_ptr = key.component_types as *const _;
         if let Some(filter_index) = self.by_key_ptr.get(&key_ptr) {
@@ -117,7 +131,6 @@ impl FilterManager {
                 matched_entities: None,
                 appear_events: None,
                 disappear_events: None,
-                fill: pre_fill_matched_entities,
             }
         });
         self.by_key_ptr.insert(key_ptr, filter_index);

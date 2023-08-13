@@ -76,17 +76,18 @@ impl<K: PoolKey, V> SpecificPool<K, V> {
         self.buffer.get(index).and_then(|it| it.as_ref())
     }
 
-    pub fn del(&mut self, key: &K) {
+    pub fn del(&mut self, key: &K) -> Option<V> {
         let index = key.as_usize();
         if index < self.buffer.len() {
             if index == self.buffer.len() - 1 {
-                self.buffer.remove(index);
+                self.buffer.remove(index)
             } else {
-                *self
+                let value = self
                     .buffer
                     .get_mut(index)
-                    .expect("WTF? we've just checked index") = None;
+                    .expect("WTF? we've just checked index");
                 self.holes.push_back(index);
+                value.take()
             }
         } else {
             panic!("attempt to delete entry outside of the bounds")

@@ -18,8 +18,11 @@ use crate::opt_tiny_vec::OptTinyVec;
 use crate::pools::AbstractPool;
 use crate::pools::PoolKey;
 use crate::pools::SpecificPool;
-use crate::signal_manager::AbstractSignalManager;
+use crate::signal_manager::{AbstractSignalManager, EntitySignalHandler};
+use crate::signal_manager::GlobalSignalHandler;
 use crate::signal_manager::SignalDataKey;
+use crate::signal_manager::SignalManager;
+use crate::signal_manager::SignalStorage;
 use crate::world::ComponentNotFoundError::Data;
 use crate::ComponentType;
 use crate::FilterKey;
@@ -48,8 +51,128 @@ pub struct World {
     sequence: Vec<Step>,
     on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
+    signal_queue: SignalQueue,
+    signal_storage: SignalStorage,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
+}
+
+impl World {
+    pub fn AddDisappearHandler(&mut self, name: &'static str, filter_key: FilterKey, callback: impl Fn(EntityKey) + 'static) {
+        let filter = self.filter_manager.get_filter(filter_key);
+        filter.track_disappear_events();
+        let filter_key = filter.unique_key;
+        self.on_disappear.entry(filter_key)
+            .or_default()
+            .push(EventHandler {
+                name,
+                callback: Box::new(callback),
+            });
+    }
+}
+
+impl World {
+    pub fn AddAppearHandler(&mut self, name: &'static str, filter_key: FilterKey, callback: impl Fn(EntityKey) + 'static) {
+        let filter = self.filter_manager.get_filter(filter_key);
+        filter.track_appear_events();
+        let filter_key = filter.unique_key;
+        self.on_appear.entry(filter_key)
+            .or_default()
+            .push(EventHandler {
+                name,
+                callback: Box::new(callback),
+            });
+    }
+}
+
+impl World {
+    pub fn Signal<T: 'static>(&mut self, payload: T) {
+        SignalSender {
+            signal_queue: &mut self.signal_queue,
+            current_cause: &self.current_cause,
+            signal_storage: &mut self.signal_storage,
+        }
+        .Signal(payload);
+    }
+}
+
+pub struct SignalSender<'a> {
+    pub(crate) signal_queue: &'a mut SignalQueue,
+    pub(crate) current_cause: &'a Cause,
+    pub(crate) signal_storage: &'a mut SignalStorage,
+}
+
+impl<'a> SignalSender<'a> {
+    pub fn Signal<T: 'static>(&mut self, payload: T) {
+        let cause = self.current_cause;
+        let data_key = self
+            .signal_storage
+            .payloads
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()))
+            .as_any_mut()
+            .try_specialize::<T>()
+            .unwrap()
+            .add(payload);
+        self.signal_queue.Signal::<T>(data_key, cause);
+    }
+}
+
+#[derive(Default)]
+pub struct SignalQueue {
     signals: VecDeque<Signal>,
+}
+
+impl SignalQueue {
+    pub fn Signal<T: 'static>(&mut self, data: SignalDataKey, current_cause: &Cause) {
+        self.signals.push_back(Signal {
+            payload_type: TypeId::of::<T>(),
+            data_key: data,
+            cause: current_cause.clone(),
+        })
+    }
+}
+
+pub type GlobalSignalCallback<T> = dyn Fn(&T, &mut SignalSender);
+pub type EntitySignalCallback<T> = dyn Fn(&T, EntityKey, &mut SignalSender);
+
+impl World {
+    pub fn AddGlobalSignalHandler<T: 'static>(
+        &mut self,
+        name: &'static str,
+        callback: impl Fn(&T, &mut SignalSender) + 'static,
+    ) {
+        self.get_signal_manager::<T>()
+            .global_handlers
+            .push(GlobalSignalHandler::new(name, Box::new(callback)))
+    }
+
+    pub fn AddEntitySignalHandler<T: 'static>(
+        &mut self,
+        name: &'static str,
+        filter: FilterKey,
+        callback: impl Fn(&T, EntityKey, &mut SignalSender) + 'static,
+    ) {
+        let filter = self.filter_manager.get_filter(filter);
+        filter.track_matched_entities(&self.entity_storage, &self.component_mappings);
+        let filter_key = filter.unique_key;
+        self.get_signal_manager::<T>()
+            .handlers
+            .entry(filter_key)
+            .or_default()
+            .push(EntitySignalHandler {
+                name,
+                callback: Box::new(callback),
+            });
+    }
+
+    fn get_signal_manager<T: 'static>(&mut self) -> &mut SignalManager<T> {
+        self.signal_managers
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(SignalManager::<T>::new()))
+            .as_any_mut()
+            .try_specialize::<T>()
+            .unwrap()
+    }
 }
 
 #[derive(Default)]
@@ -116,8 +239,9 @@ impl World {
             sequence: vec![],
             on_appear: Default::default(),
             on_disappear: Default::default(),
+            signal_queue: Default::default(),
+            signal_storage: SignalStorage::new(),
             signal_managers: Default::default(),
-            signals: Default::default(),
         };
         configure_pipeline(&mut world);
         world
@@ -210,14 +334,14 @@ impl Cause {
 }
 
 pub struct EventHandler {
-    name: String,
+    name: &'static str,
     callback: Box<dyn Fn(EntityKey)>,
 }
 
 pub struct Signal {
-    payload_type: TypeId,
-    data: SignalDataKey,
-    cause: Cause,
+    pub payload_type: TypeId,
+    pub data_key: SignalDataKey,
+    pub cause: Cause,
 }
 
 impl World {
@@ -540,7 +664,7 @@ fn invoke_handlers(
                 };
                 if let Some(events) = events {
                     for (entity, causes) in events {
-                        let new_cause = current_cause.create_consequence(handler.name.clone());
+                        let new_cause = current_cause.create_consequence(handler.name.to_string());
                         let prev_cause = mem::replace(current_cause, new_cause);
                         (handler.callback)(entity.export());
                         *current_cause = prev_cause;
@@ -614,9 +738,15 @@ impl World {
     }
 
     fn invoke_signal_handler(&mut self) {
-        if let Some(_) = self.signals.pop_front() {
-            todo!();
-            // self.signal_managers[signal.Type].Invoke(signal.Index, signal.Cause);
+        if let Some(signal) = self.signal_queue.signals.pop_front() {
+            let manager = self.signal_managers.get_mut(&signal.payload_type).unwrap();
+            manager.invoke(
+                signal,
+                &mut self.current_cause,
+                &mut self.signal_queue,
+                &mut self.signal_storage,
+                &mut self.filter_manager,
+            );
         }
     }
 }
@@ -680,7 +810,7 @@ fn configure_pipeline(world: &mut World) {
     add_goto(
         world,
         "check_signals",
-        |world| !world.signals.is_empty(),
+        |world| !world.signal_queue.signals.is_empty(),
         invoke_signal_handler,
     );
 }

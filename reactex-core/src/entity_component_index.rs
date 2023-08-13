@@ -52,8 +52,9 @@ impl EntityComponentIndex {
             self.component_types = new_table;
         }
 
-        *self.component_count.get_mut(entity.index as usize).unwrap() += 1;
-        *self.component_types.get_mut(entity.index as usize).unwrap() = component_type;
+        let offset = self.component_count.get_mut(entity.index as usize).unwrap();
+        *self.component_types.get_mut(entity.index as usize * self.component_types_width + *offset as usize).unwrap() = component_type;
+        *offset += 1;
     }
 
     pub(crate) fn delete_component_type(
@@ -79,14 +80,16 @@ impl EntityComponentIndex {
     pub(crate) fn get_component_types(
         &self,
         entity: EntityIndex,
-    ) -> impl Iterator<Item = ComponentType> + '_ {
+    ) -> impl Iterator<Item=ComponentType> + '_ {
         let entity = entity.index as usize;
 
-        self.component_types
+        let copied = self.component_types
             .iter()
             .skip(entity * self.component_types_width)
             .take(self.component_count[entity] as usize)
             .copied()
+            .collect::<Vec<_>>();
+        copied.into_iter()
     }
 
     pub(crate) fn add_entity(&mut self, entity: EntityIndex) {
@@ -103,4 +106,41 @@ fn expand_slice<T: Clone>(slice: &mut Box<[T]>, default: T) {
     let mut dst = vec![default; slice.len() * 2].into_boxed_slice();
     dst[0..slice.len()].clone_from_slice(slice);
     *slice = dst;
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::ComponentType;
+    use crate::entity_component_index::EntityComponentIndex;
+    use crate::entity_storage::EntityStorage;
+
+    #[test]
+    fn three_components_added_and_read() {
+        let mut entities = EntityStorage::with_capacity(512);
+        let mut components = EntityComponentIndex::new(512, 8);
+        let e1 = entities.new_entity();
+        components.add_entity(e1.index);
+        components.add_component_type(e1.index, ComponentType { index: 11 });
+        components.add_component_type(e1.index, ComponentType { index: 12 });
+        components.add_component_type(e1.index, ComponentType { index: 13 });
+
+        let component_types = components.get_component_types(e1.index).collect::<Vec<_>>();
+        assert_eq!(component_types, vec![ComponentType { index: 11 }, ComponentType { index: 12 }, ComponentType { index: 13 }])
+    }
+
+    #[test]
+    fn three_components_added_and_read_on_the_second_entity() {
+        let mut entities = EntityStorage::with_capacity(512);
+        let mut components = EntityComponentIndex::new(512, 8);
+        entities.new_entity();
+        let e1 = entities.new_entity();
+        components.add_entity(e1.index);
+        components.add_component_type(e1.index, ComponentType { index: 11 });
+        components.add_component_type(e1.index, ComponentType { index: 12 });
+        components.add_component_type(e1.index, ComponentType { index: 13 });
+
+        let component_types = components.get_component_types(e1.index).collect::<Vec<_>>();
+        assert_eq!(component_types, vec![ComponentType { index: 11 }, ComponentType { index: 12 }, ComponentType { index: 13 }])
+    }
 }
