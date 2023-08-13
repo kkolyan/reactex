@@ -14,7 +14,7 @@ struct NoType;
 
 impl StaticComponentType for NoType {
     const INDEX: u16 = 0;
-    const NAME: &'static str = concat!(module_path!(), "::NoType");
+    const NAME: &'static str = concat!("::", module_path!(), "::NoType");
 }
 
 impl EntityComponentIndex {

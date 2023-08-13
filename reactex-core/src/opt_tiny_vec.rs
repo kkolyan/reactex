@@ -30,6 +30,13 @@ impl<T> OptTinyVec<T> {
     }
 
     #[inline]
+    pub fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for item in iter {
+            self.push(item);
+        }
+    }
+
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
         self.inner.iter().map(|it| it.as_ref().unwrap())
     }

@@ -1,6 +1,3 @@
-extern crate core;
-
-use std::any::TypeId;
 use std::fmt::Debug;
 
 pub mod api;
@@ -20,6 +17,7 @@ mod pools;
 mod signal_manager;
 pub mod world;
 pub mod world_state;
+mod typed_index_vec;
 
 pub trait StaticComponentType: Debug + 'static {
     const INDEX: u16;
@@ -30,18 +28,47 @@ pub trait StaticComponentType: Debug + 'static {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub const fn component_type_of<T: StaticComponentType>() -> ComponentType {
+    ComponentType { index: T::INDEX }
+}
+
+const fn component_type_gt(a: ComponentType, b: ComponentType) -> bool {
+    a.index > b.index
+}
+
+pub const fn sort_component_types<const N: usize>(mut arr: [ComponentType; N]) -> [ComponentType; N] {
+    loop {
+        let mut swapped = false;
+        let mut i = 1;
+        while i < arr.len() {
+            if component_type_gt(arr[i-1], arr[i]) {
+                let left = arr[i-1];
+                let right = arr[i];
+                arr[i-1] = right;
+                arr[i] = left;
+                swapped = true;
+            }
+            i += 1;
+        }
+        if !swapped {
+            break;
+        }
+    }
+    arr
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Ord, PartialOrd)]
 pub struct ComponentType {
     index: u16,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FilterKey {
-    component_types: Vec<ComponentType>,
+    component_types: &'static [ComponentType],
 }
 
 impl FilterKey {
-    pub fn new(component_types: Vec<ComponentType>) -> FilterKey {
+    pub const fn new(component_types: &'static [ComponentType]) -> FilterKey {
         FilterKey { component_types }
     }
 }

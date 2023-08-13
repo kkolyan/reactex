@@ -1,4 +1,4 @@
-use crate::entity::EntityIndex;
+use crate::entity::{EntityIndex, InternalEntityKey};
 use crate::entity::EntityKey;
 use crate::entity_component_index::EntityComponentIndex;
 use crate::entity_storage::EntityStorage;
@@ -7,7 +7,7 @@ use crate::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::execution::ExecutionContext;
 use crate::execution::Step;
 use crate::execution::StepImpl;
-use crate::filter_manager::ComponentChangeKey;
+use crate::filter_manager::{ComponentAddKey, ComponentChangeKey, ComponentRemoveKey};
 use crate::filter_manager::FilterManager;
 use crate::opt_tiny_vec::OptTinyVec;
 use crate::pools::AbstractPool;
@@ -33,8 +33,8 @@ use ComponentNotFoundError::Mapping;
 pub struct World {
     entity_storage: EntityStorage,
     entity_component_index: EntityComponentIndex,
-    entities_to_destroy: HashMap<EntityIndex, OptTinyVec<Cause>>,
-    entities_to_commit: HashMap<EntityIndex, OptTinyVec<Cause>>,
+    entities_to_destroy: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
+    entities_to_commit: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
     components_to_delete: DeleteQueue,
     components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
     component_data_pools: HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
@@ -46,6 +46,27 @@ pub struct World {
     on_disappear: HashMap<FilterKey, Vec<EventHandler>>,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
     signals: VecDeque<Signal>,
+}
+
+
+impl World {
+    pub(crate) fn get_component_types(&self, entity: InternalEntityKey) -> impl Iterator<Item=ComponentType> + '_ {
+        self.entity_component_index.get_component_types(entity.index)
+    }
+}
+
+impl World {
+    pub(crate) fn get_all_entities(&self) -> impl Iterator<Item=InternalEntityKey> + '_ {
+        self.entity_storage.get_all()
+    }
+}
+
+impl World {
+    pub fn query(&mut self, filter: FilterKey, mut callback: impl FnMut(EntityKey)) {
+        for matched_entity in self.filter_manager.get_filter(filter).track_matched_entities().iter().copied() {
+            callback(matched_entity.export());
+        }
+    }
 }
 
 #[allow(clippy::new_without_default)]
@@ -76,17 +97,32 @@ impl World {
 #[derive(Default)]
 pub struct DeleteQueue {
     before_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
-    after_disappear: HashSet<ComponentKey>,
+    after_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ComponentKey {
+struct TemporaryComponentKey {
     pub(crate) entity: EntityIndex,
     pub(crate) component_type: ComponentType,
 }
 
+impl TemporaryComponentKey {
+    pub(crate) fn of<T: StaticComponentType>(entity: EntityIndex) -> TemporaryComponentKey {
+        TemporaryComponentKey {
+            entity,
+            component_type: T::get_component_type(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct ComponentKey {
+    pub(crate) entity: InternalEntityKey,
+    pub(crate) component_type: ComponentType,
+}
+
 impl ComponentKey {
-    pub(crate) fn of<T: StaticComponentType>(entity: EntityIndex) -> ComponentKey {
+    pub(crate) fn of<T: StaticComponentType>(entity: InternalEntityKey) -> ComponentKey {
         ComponentKey {
             entity,
             component_type: T::get_component_type(),
@@ -228,8 +264,7 @@ impl World {
         component: T,
     ) -> WorldResult {
         let entity = entity
-            .validate(&self.entity_storage, AllowUncommitted)?
-            .index;
+            .validate(&self.entity_storage, AllowUncommitted)?;
 
         let data = self.get_component_data_mut::<T>().add(component);
 
@@ -242,14 +277,13 @@ impl World {
             });
 
         self.entity_component_index
-            .add_component_type(entity, T::get_component_type());
+            .add_component_type(entity.index, T::get_component_type());
         Ok(())
     }
 
     pub fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey) -> WorldResult {
         let entity = entity
-            .validate(&self.entity_storage, DenyUncommitted)?
-            .index;
+            .validate(&self.entity_storage, DenyUncommitted)?;
 
         let removed = self
             .components_to_add
@@ -284,12 +318,13 @@ impl World {
             .unwrap_or(false))
     }
 
-    pub(crate) fn has_component_no_validation<T: StaticComponentType>(
+    pub(crate) fn has_component_no_validation(
         &self,
         entity: EntityIndex,
+        component_type: ComponentType,
     ) -> bool {
         self.component_mappings
-            .get(&T::get_component_type())
+            .get(&component_type)
             .map(|it| it.contains_key(&entity))
             .unwrap_or(false)
     }
@@ -321,7 +356,7 @@ impl World {
         let entity = self.entity_storage.new_entity();
         self.entity_component_index.add_entity(entity.index);
         self.entities_to_commit
-            .entry(entity.index)
+            .entry(entity)
             .or_default()
             .push(self.current_cause.clone());
         entity.export()
@@ -329,22 +364,18 @@ impl World {
 
     pub fn destroy_entity(&mut self, entity: EntityKey) -> WorldResult {
         let entity = entity
-            .validate(&self.entity_storage, AllowUncommitted)?
-            .index;
-        if self.entity_storage.is_not_committed(entity) {
+            .validate(&self.entity_storage, AllowUncommitted)?;
+        if self.entity_storage.is_not_committed(entity.index) {
             // destroy entity and attached components immediately, because they are non committed yet
-            for component_type in self.entity_component_index.get_component_types(entity) {
+            for component_type in self.entity_component_index.get_component_types(entity.index) {
                 Self::remove_component_immediate(
                     &mut self.component_data_pools,
-                    &mut self.component_mappings,
-                    ComponentKey {
-                        entity,
-                        component_type,
-                    },
+                    &mut self.component_mappings, component_type,
+                    entity.index,
                 )
             }
             self.entities_to_commit.remove(&entity);
-            self.entity_storage.delete_entity_data(entity);
+            self.entity_storage.delete_entity_data(entity.index);
         } else {
             self.entities_to_destroy.entry(entity).or_default().push(
                 self.current_cause
@@ -363,13 +394,14 @@ impl World {
     fn remove_component_immediate(
         component_data_pools: &mut HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
         mappings: &mut HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
-        component_key: ComponentKey,
+        component_type: ComponentType,
+        entity_index: EntityIndex,
     ) {
         let table: &mut HashMap<EntityIndex, ComponentDataKey> =
-            mappings.get_mut(&component_key.component_type).unwrap();
-        let data = table.remove(&component_key.entity).unwrap();
+            mappings.get_mut(&component_type).unwrap();
+        let data = table.remove(&entity_index).unwrap();
         component_data_pools
-            .get_mut(&component_key.component_type)
+            .get_mut(&component_type)
             .unwrap()
             .del(&data);
     }
@@ -403,7 +435,7 @@ impl World {
 
     fn flush_entity_create_actions(&mut self) {
         for (task, causes) in mem::take(&mut self.entities_to_commit) {
-            self.entity_storage.mark_committed(task);
+            self.entity_storage.mark_committed(task.index);
             self.filter_manager.on_entity_created(task, causes);
         }
     }
@@ -425,17 +457,19 @@ impl World {
             }
             let mapping = self
                 .get_component_mapping_mut(component_key.component_type)
-                .entry(component_key.entity)
+                .entry(component_key.entity.index)
                 .or_insert(chosen_version);
             assert_eq!(
                 *mapping, chosen_version,
                 "attempt to mark committed as committed"
             );
 
-            self.filter_manager.on_component_added(ComponentChangeKey {
-                component_key,
-                causes,
-            });
+            self.filter_manager.on_component_added(
+                |entity| self.entity_component_index.get_component_types(entity.index),
+                ComponentAddKey {
+                    component_key,
+                    causes,
+                });
         }
     }
 
@@ -445,22 +479,26 @@ impl World {
 
     fn flush_entity_destroy_actions(&mut self) {
         for (entity, causes) in mem::take(&mut self.entities_to_destroy) {
-            self.entity_storage.delete_entity_data(entity);
+            self.entity_storage.delete_entity_data(entity.index);
             self.filter_manager.on_entity_destroyed(entity, causes);
         }
     }
 
     fn flush_component_removals(&mut self) {
-        for component_key in mem::take(&mut self.components_to_delete.after_disappear) {
+        for (component_key, causes) in mem::take(&mut self.components_to_delete.after_disappear) {
             Self::remove_component_immediate(
                 &mut self.component_data_pools,
                 &mut self.component_mappings,
-                component_key,
+                component_key.component_type,
+                component_key.entity.index,
             );
 
             self.entity_component_index
-                .delete_component_type(component_key.entity, component_key.component_type);
-            self.filter_manager.on_component_deleted(component_key)
+                .delete_component_type(component_key.entity.index, component_key.component_type);
+            self.filter_manager.on_component_removed(ComponentRemoveKey {
+                component_key,
+                causes,
+            })
         }
     }
 
@@ -476,17 +514,18 @@ impl World {
             self.filter_manager
                 .generate_disappear_events(ComponentChangeKey {
                     component_key,
-                    causes,
+                    // TODO consider avoid cloning
+                    causes: causes.clone(),
                 });
             self.components_to_delete
                 .after_disappear
-                .insert(component_key);
+                .insert(component_key, causes);
         }
     }
 
     fn schedule_destroyed_entities_component_removal(&mut self) {
         for (entity, causes) in mem::take(&mut self.entities_to_destroy) {
-            for component_type in self.entity_component_index.get_component_types(entity) {
+            for component_type in self.entity_component_index.get_component_types(entity.index) {
                 let existing_causes = self
                     .components_to_delete
                     .before_disappear
@@ -530,46 +569,46 @@ fn configure_pipeline(world: &mut World) {
     step_simple_a!(world, invoke_signal_handler);
     step_simple_a!(world, schedule_destroyed_entities_component_removal);
     step_simple_a!(world, generate_disappear_events);
-    // step_simple_b!(world, invoke_disappear_handlers);
+    step_simple_b!(world, invoke_disappear_handlers);
     step_simple_b!(world, flush_component_removals);
     add_goto(
         world,
         "check_destroyed_entities_early",
-        |world| world.entities_to_destroy.len() > 0,
+        |world| !world.entities_to_destroy.is_empty(),
         schedule_destroyed_entities_component_removal,
     );
     add_goto(
         world,
         "check_removed_components_early",
-        |world| world.components_to_delete.before_disappear.len() > 0,
+        |world| !world.components_to_delete.before_disappear.is_empty(),
         generate_disappear_events,
     );
     step_simple_b!(world, flush_entity_destroy_actions);
     step_simple_b!(world, flush_entity_create_actions);
     step_simple_a!(world, flush_component_addition);
-    // step_simple_b!(world, invoke_appear_handlers);
+    step_simple_b!(world, invoke_appear_handlers);
     add_goto(
         world,
         "check_destroyed_entities_late",
-        |world| world.entities_to_destroy.len() > 0,
+        |world| !world.entities_to_destroy.is_empty(),
         schedule_destroyed_entities_component_removal,
     );
     add_goto(
         world,
         "check_removed_components_late",
-        |world| world.components_to_delete.before_disappear.len() > 0,
+        |world| !world.components_to_delete.before_disappear.is_empty(),
         generate_disappear_events,
     );
     add_goto(
         world,
         "check_added_components",
-        |world| world.components_to_add.len() > 0,
+        |world| !world.components_to_add.is_empty(),
         flush_component_addition,
     );
     add_goto(
         world,
         "check_signals",
-        |world| world.signals.len() > 0,
+        |world| !world.signals.is_empty(),
         invoke_signal_handler,
     );
 }
