@@ -55,7 +55,7 @@ pub fn derive_ecs_component(item: TokenStream, module_path: &str, types_file: &s
         Some((index, _)) => index as u16,
     };
     quote! {
-        impl ::reactex_core::StaticComponentType for #ty {
+        impl ::reactex_core::component::StaticComponentType for #ty {
             const NAME: &'static str = #ty_str;
             const INDEX: u16 = #index + 1;
         }

@@ -1,7 +1,6 @@
+use crate::component::{ComponentType, StaticComponentType};
 use crate::entity::EntityIndex;
 use crate::lang::boxed_slice;
-use crate::ComponentType;
-use crate::StaticComponentType;
 
 pub(crate) struct EntityComponentIndex {
     component_count: Box<[u16]>,
@@ -10,11 +9,11 @@ pub(crate) struct EntityComponentIndex {
 }
 
 #[derive(Debug)]
-struct NoType;
+struct NoneComponent;
 
-impl StaticComponentType for NoType {
+impl StaticComponentType for NoneComponent {
     const INDEX: u16 = 0;
-    const NAME: &'static str = concat!("::", module_path!(), "::NoType");
+    const NAME: &'static str = concat!("::", module_path!(), "::NullType");
 }
 
 impl EntityComponentIndex {
@@ -22,14 +21,14 @@ impl EntityComponentIndex {
         EntityComponentIndex {
             component_count: boxed_slice(0, initial_capacity),
             component_types: boxed_slice(
-                NoType::get_component_type(),
+                NoneComponent::get_component_type(),
                 initial_capacity * initial_component_types_width,
             ),
             component_types_width: initial_component_types_width,
         }
     }
 
-    pub(crate) fn add_component_type(
+    pub fn add_component_type(
         &mut self,
         entity: EntityIndex,
         component_type: ComponentType,
@@ -37,7 +36,7 @@ impl EntityComponentIndex {
         let component_count_before =
             *self.component_count.get(entity.index as usize).unwrap() as usize;
         if component_count_before >= self.component_types_width {
-            let mut new_table = vec![NoType::get_component_type(); self.component_types.len() * 2]
+            let mut new_table = vec![NoneComponent::get_component_type(); self.component_types.len() * 2]
                 .into_boxed_slice();
             let row_size_before = self.component_types_width;
             self.component_types_width *= 2;
@@ -57,7 +56,7 @@ impl EntityComponentIndex {
         *offset += 1;
     }
 
-    pub(crate) fn delete_component_type(
+    pub fn delete_component_type(
         &mut self,
         entity: EntityIndex,
         component_type: ComponentType,
@@ -77,7 +76,7 @@ impl EntityComponentIndex {
         }
     }
 
-    pub(crate) fn get_component_types(
+    pub fn get_component_types(
         &self,
         entity: EntityIndex,
     ) -> impl Iterator<Item=ComponentType> + '_ {
@@ -92,11 +91,11 @@ impl EntityComponentIndex {
         copied.into_iter()
     }
 
-    pub(crate) fn add_entity(&mut self, entity: EntityIndex) {
+    pub fn add_entity(&mut self, entity: EntityIndex) {
         let entity = entity.index as usize;
         if entity >= self.component_count.len() {
             expand_slice(&mut self.component_count, Default::default());
-            expand_slice(&mut self.component_types, NoType::get_component_type());
+            expand_slice(&mut self.component_types, NoneComponent::get_component_type());
         }
         self.component_count[entity] = 0;
     }
@@ -111,9 +110,9 @@ fn expand_slice<T: Clone>(slice: &mut Box<[T]>, default: T) {
 
 #[cfg(test)]
 mod tests {
-    use crate::ComponentType;
-    use crate::entity_component_index::EntityComponentIndex;
-    use crate::entity_storage::EntityStorage;
+    use crate::component::ComponentType;
+    use crate::world_mod::entity_component_index::EntityComponentIndex;
+    use crate::world_mod::entity_storage::EntityStorage;
 
     #[test]
     fn three_components_added_and_read() {

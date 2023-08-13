@@ -10,6 +10,12 @@ pub struct TiVec<K, T> {
     inner: Vec<T>,
 }
 
+impl <K,T> Default for TiVec<K,T> {
+    fn default() -> Self {
+        TiVec::new()
+    }
+}
+
 impl<K, T> TiVec<K, T> {
     pub(crate) fn new() -> TiVec<K, T> {
         TiVec {

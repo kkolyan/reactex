@@ -214,7 +214,7 @@ fn generate_registration(
     let filter_key = match event_type {
         EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {
             let filter_vec = common::generate_filter_vec(components);
-            Some(quote! { let filter_key = reactex::api::FilterKey::new(vec![#filter_vec]); })
+            Some(quote! { let filter_key = reactex::api::FilterDesc::new(vec![#filter_vec]); })
         }
         EventType::OnSignalGlobal => None,
     };

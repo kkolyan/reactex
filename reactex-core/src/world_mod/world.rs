@@ -1,216 +1,73 @@
-use crate::entity::EntityIndex;
-use crate::entity::EntityKey;
-use crate::entity::InternalEntityKey;
-use crate::entity_component_index::EntityComponentIndex;
-use crate::entity_storage::EntityStorage;
-use crate::entity_storage::ValidateUncommitted::AllowUncommitted;
-use crate::entity_storage::ValidateUncommitted::DenyUncommitted;
-use crate::execution::ExecutionContext;
-use crate::execution::Step;
-use crate::execution::StepImpl;
-use crate::filter_manager::ComponentAddKey;
-use crate::filter_manager::ComponentChangeKey;
-use crate::filter_manager::ComponentRemoveKey;
-use crate::filter_manager::FilterIter;
-use crate::filter_manager::FilterManager;
-use crate::filter_manager::InternalFilterKey;
-use crate::opt_tiny_vec::OptTinyVec;
-use crate::pools::AbstractPool;
-use crate::pools::PoolKey;
-use crate::pools::SpecificPool;
-use crate::signal_manager::{AbstractSignalManager, EntitySignalHandler};
-use crate::signal_manager::GlobalSignalHandler;
-use crate::signal_manager::SignalDataKey;
-use crate::signal_manager::SignalManager;
-use crate::signal_manager::SignalStorage;
-use crate::world::ComponentNotFoundError::Data;
-use crate::ComponentType;
-use crate::FilterKey;
-use crate::StaticComponentType;
 use justerror::Error;
-use log::trace;
-use std::any::TypeId;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::mem;
-use std::rc::Rc;
-use ComponentNotFoundError::Mapping;
+use std::any::TypeId;
+use log::trace;
+use crate::cause::Cause;
+use crate::component::{ComponentType, StaticComponentType};
+use crate::entity::{EntityIndex, EntityKey, InternalEntityKey};
+use crate::filter::events::FilterComponentChange;
+use crate::filter::filter_desc::FilterDesc;
+use crate::filter::filter_manager::{FilterManager, InternalFilterKey};
+use crate::filter::filter_manager_iter::FilterIter;
+use crate::opt_tiny_vec::OptTinyVec;
+use crate::pools::{AbstractPool, SpecificPool};
+use crate::world_mod::world::ComponentNotFoundError::{Data, Mapping};
+use crate::world_mod::component_mapping::{ComponentDataKey, ComponentMappingStorage};
+use crate::world_mod::entity_component_index::EntityComponentIndex;
+use crate::world_mod::entity_storage::EntityStorage;
+use crate::world_mod::entity_storage::ValidateUncommitted::{AllowUncommitted, DenyUncommitted};
+use crate::world_mod::execution::Step;
+use crate::world_mod::pipeline;
+use crate::world_mod::signal_manager::{AbstractSignalManager, SignalManager};
+use crate::world_mod::signal_queue::SignalQueue;
+use crate::world_mod::signal_sender::SignalSender;
+use crate::world_mod::signal_storage::{SignalDataKey, SignalStorage};
 
 pub struct World {
-    entity_storage: EntityStorage,
+    pub(crate) entity_storage: EntityStorage,
     entity_component_index: EntityComponentIndex,
-    entities_to_destroy: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
+    pub(crate) entities_to_destroy: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
     entities_to_commit: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
-    components_to_delete: DeleteQueue,
-    components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
+    pub(crate) components_to_delete: DeleteQueue,
+    pub(crate) components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
     component_data_pools: HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
-    component_mappings: ComponentMappings,
+    pub(crate) component_mappings: ComponentMappingStorage,
     current_cause: Cause,
-    filter_manager: FilterManager,
-    sequence: Vec<Step>,
-    on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
-    on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
-    signal_queue: SignalQueue,
+    pub(crate) filter_manager: FilterManager,
+    pub(crate) sequence: Vec<Step>,
+    pub(crate) on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
+    pub(crate) on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
+    pub(crate) signal_queue: SignalQueue,
     signal_storage: SignalStorage,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
 }
 
 impl World {
-    pub fn AddDisappearHandler(&mut self, name: &'static str, filter_key: FilterKey, callback: impl Fn(EntityKey) + 'static) {
-        let filter = self.filter_manager.get_filter(filter_key);
-        filter.track_disappear_events();
-        let filter_key = filter.unique_key;
-        self.on_disappear.entry(filter_key)
-            .or_default()
-            .push(EventHandler {
-                name,
-                callback: Box::new(callback),
-            });
-    }
-}
-
-impl World {
-    pub fn AddAppearHandler(&mut self, name: &'static str, filter_key: FilterKey, callback: impl Fn(EntityKey) + 'static) {
-        let filter = self.filter_manager.get_filter(filter_key);
-        filter.track_appear_events();
-        let filter_key = filter.unique_key;
-        self.on_appear.entry(filter_key)
-            .or_default()
-            .push(EventHandler {
-                name,
-                callback: Box::new(callback),
-            });
-    }
-}
-
-impl World {
-    pub fn Signal<T: 'static>(&mut self, payload: T) {
-        SignalSender {
+    pub fn signal<T: 'static>(&mut self, payload: T) {
+        let mut sender = SignalSender {
             signal_queue: &mut self.signal_queue,
             current_cause: &self.current_cause,
             signal_storage: &mut self.signal_storage,
-        }
-        .Signal(payload);
+        };
+        sender.signal(payload);
     }
 }
-
-pub struct SignalSender<'a> {
-    pub(crate) signal_queue: &'a mut SignalQueue,
-    pub(crate) current_cause: &'a Cause,
-    pub(crate) signal_storage: &'a mut SignalStorage,
-}
-
-impl<'a> SignalSender<'a> {
-    pub fn Signal<T: 'static>(&mut self, payload: T) {
-        let cause = self.current_cause;
-        let data_key = self
-            .signal_storage
-            .payloads
-            .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()))
-            .as_any_mut()
-            .try_specialize::<T>()
-            .unwrap()
-            .add(payload);
-        self.signal_queue.Signal::<T>(data_key, cause);
-    }
-}
-
-#[derive(Default)]
-pub struct SignalQueue {
-    signals: VecDeque<Signal>,
-}
-
-impl SignalQueue {
-    pub fn Signal<T: 'static>(&mut self, data: SignalDataKey, current_cause: &Cause) {
-        self.signals.push_back(Signal {
-            payload_type: TypeId::of::<T>(),
-            data_key: data,
-            cause: current_cause.clone(),
-        })
-    }
-}
-
-pub type GlobalSignalCallback<T> = dyn Fn(&T, &mut SignalSender);
-pub type EntitySignalCallback<T> = dyn Fn(&T, EntityKey, &mut SignalSender);
 
 impl World {
-    pub fn AddGlobalSignalHandler<T: 'static>(
-        &mut self,
-        name: &'static str,
-        callback: impl Fn(&T, &mut SignalSender) + 'static,
-    ) {
-        self.get_signal_manager::<T>()
-            .global_handlers
-            .push(GlobalSignalHandler::new(name, Box::new(callback)))
-    }
 
-    pub fn AddEntitySignalHandler<T: 'static>(
-        &mut self,
-        name: &'static str,
-        filter: FilterKey,
-        callback: impl Fn(&T, EntityKey, &mut SignalSender) + 'static,
-    ) {
-        let filter = self.filter_manager.get_filter(filter);
-        filter.track_matched_entities(&self.entity_storage, &self.component_mappings);
-        let filter_key = filter.unique_key;
-        self.get_signal_manager::<T>()
-            .handlers
-            .entry(filter_key)
-            .or_default()
-            .push(EntitySignalHandler {
-                name,
-                callback: Box::new(callback),
-            });
-    }
-
-    fn get_signal_manager<T: 'static>(&mut self) -> &mut SignalManager<T> {
+    pub(crate) fn get_signal_manager<T: 'static>(&mut self) -> &mut SignalManager<T> {
         self.signal_managers
             .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(SignalManager::<T>::new()))
+            .or_insert_with(|| Box::<SignalManager<T>>::default())
             .as_any_mut()
             .try_specialize::<T>()
             .unwrap()
     }
 }
 
-#[derive(Default)]
-pub struct ComponentMappings {
-    component_mappings: HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
-}
-
-impl ComponentMappings {
-    pub(crate) fn has_component_no_validation(
-        &self,
-        entity: EntityIndex,
-        component_type: ComponentType,
-    ) -> bool {
-        self.component_mappings
-            .get(&component_type)
-            .map(|it| it.contains_key(&entity))
-            .unwrap_or(false)
-    }
-}
-
 impl World {
-    pub(crate) fn get_component_types(
-        &self,
-        entity: InternalEntityKey,
-    ) -> impl Iterator<Item = ComponentType> + '_ {
-        self.entity_component_index
-            .get_component_types(entity.index)
-    }
-}
-
-impl World {
-    pub(crate) fn get_all_entities(&self) -> impl Iterator<Item = InternalEntityKey> + '_ {
-        self.entity_storage.get_all()
-    }
-}
-
-impl World {
-    pub fn query(&mut self, filter: FilterKey, mut callback: impl FnMut(EntityKey)) {
+    pub fn query(&mut self, filter: FilterDesc, mut callback: impl FnMut(EntityKey)) {
         for matched_entity in self
             .filter_manager
             .get_filter(filter)
@@ -235,7 +92,7 @@ impl World {
             component_data_pools: Default::default(),
             component_mappings: Default::default(),
             current_cause: Cause::initial(),
-            filter_manager: FilterManager::new(),
+            filter_manager: Default::default(),
             sequence: vec![],
             on_appear: Default::default(),
             on_disappear: Default::default(),
@@ -243,30 +100,15 @@ impl World {
             signal_storage: SignalStorage::new(),
             signal_managers: Default::default(),
         };
-        configure_pipeline(&mut world);
+        pipeline::configure_pipeline(&mut world);
         world
     }
 }
 
 #[derive(Default)]
 pub struct DeleteQueue {
-    before_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
+    pub(crate) before_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
     after_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-struct TemporaryComponentKey {
-    pub(crate) entity: EntityIndex,
-    pub(crate) component_type: ComponentType,
-}
-
-impl TemporaryComponentKey {
-    pub(crate) fn of<T: StaticComponentType>(entity: EntityIndex) -> TemporaryComponentKey {
-        TemporaryComponentKey {
-            entity,
-            component_type: T::get_component_type(),
-        }
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -289,84 +131,15 @@ pub struct ComponentAdd {
     cause: Cause,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ComponentDataKey {
-    pub index: usize,
-}
-
-impl PoolKey for ComponentDataKey {
-    fn as_usize(&self) -> usize {
-        self.index
-    }
-    fn from_usize(value: usize) -> Self {
-        ComponentDataKey { index: value }
-    }
-}
-
-#[derive(Clone)]
-pub struct Cause {
-    inner: Rc<RefCell<CauseInner>>,
-}
-
-struct CauseInner {
-    title: String,
-    reasons: OptTinyVec<Cause>,
-}
-
-impl Cause {
-    pub fn initial() -> Cause {
-        Cause {
-            inner: Rc::new(RefCell::new(CauseInner {
-                title: "initial".to_string(),
-                reasons: OptTinyVec::default(),
-            })),
-        }
-    }
-
-    pub(crate) fn create_consequence(&self, title: String) -> Cause {
-        Cause {
-            inner: Rc::new(RefCell::new(CauseInner {
-                title,
-                reasons: OptTinyVec::single(self.clone()),
-            })),
-        }
-    }
-}
-
 pub struct EventHandler {
-    name: &'static str,
-    callback: Box<dyn Fn(EntityKey)>,
+    pub(crate) name: &'static str,
+    pub(crate) callback: Box<dyn Fn(EntityKey)>,
 }
 
 pub struct Signal {
     pub payload_type: TypeId,
     pub data_key: SignalDataKey,
     pub cause: Cause,
-}
-
-impl World {
-    pub fn execute_all(&mut self) {
-        trace!("execute_all");
-        let mut ctx = ExecutionContext { cursor: 0 };
-        while ctx.cursor < self.sequence.len() {
-            let step = &self.sequence[ctx.cursor];
-            trace!("executing step: {}", step.name);
-            ctx.cursor += 1;
-            match step.callback {
-                StepImpl::Fn(callback) => {
-                    callback(self);
-                }
-                StepImpl::Goto {
-                    condition,
-                    destination_index,
-                } => {
-                    if condition(self) {
-                        ctx.cursor = destination_index;
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[Error]
@@ -465,7 +238,7 @@ impl World {
             .index;
         Ok(self
             .component_mappings
-            .component_mappings
+            .data_by_entity_by_type
             .get(&T::get_component_type())
             .map(|it| it.contains_key(&entity))
             .unwrap_or(false))
@@ -487,7 +260,7 @@ impl World {
     ) -> Option<&T> {
         let data = self
             .component_mappings
-            .component_mappings
+            .data_by_entity_by_type
             .get(&T::get_component_type())?
             .get(&entity)?;
         let instance = self.get_component_data::<T>()?.get(data);
@@ -539,12 +312,12 @@ impl World {
 
     fn remove_component_immediate(
         component_data_pools: &mut HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
-        mappings: &mut ComponentMappings,
+        mappings: &mut ComponentMappingStorage,
         component_type: ComponentType,
         entity_index: EntityIndex,
     ) {
         let table: &mut HashMap<EntityIndex, ComponentDataKey> = mappings
-            .component_mappings
+            .data_by_entity_by_type
             .get_mut(&component_type)
             .unwrap();
         let data = table.remove(&entity_index).unwrap();
@@ -579,19 +352,19 @@ impl World {
         component_type: ComponentType,
     ) -> &mut HashMap<EntityIndex, ComponentDataKey> {
         self.component_mappings
-            .component_mappings
+            .data_by_entity_by_type
             .entry(component_type)
             .or_default()
     }
 
-    fn flush_entity_create_actions(&mut self) {
+    pub(crate) fn flush_entity_create_actions(&mut self) {
         for (task, causes) in mem::take(&mut self.entities_to_commit) {
             self.entity_storage.mark_committed(task.index);
             self.filter_manager.on_entity_created(task, causes);
         }
     }
 
-    fn flush_component_addition(&mut self) {
+    pub(crate) fn flush_component_addition(&mut self) {
         for (component_key, versions) in mem::take(&mut self.components_to_add) {
             let mut versions = versions.into_iter();
             let ComponentAdd {
@@ -617,7 +390,7 @@ impl World {
 
             self.filter_manager.on_component_added(
                 &self.entity_component_index,
-                ComponentAddKey {
+                FilterComponentChange {
                     component_key,
                     causes,
                 },
@@ -625,7 +398,7 @@ impl World {
         }
     }
 
-    fn invoke_disappear_handlers(&mut self) {
+    pub(crate) fn invoke_disappear_handlers(&mut self) {
         invoke_handlers(
             self.filter_manager.take_with_new_disappear_events(),
             &mut self.on_disappear,
@@ -634,7 +407,7 @@ impl World {
         );
     }
 
-    fn invoke_appear_handlers(&mut self) {
+    pub(crate) fn invoke_appear_handlers(&mut self) {
         invoke_handlers(
             self.filter_manager.take_with_new_appear_events(),
             &mut self.on_appear,
@@ -650,7 +423,7 @@ enum ComponentEventType {
 }
 
 fn invoke_handlers(
-    mut filters: FilterIter<impl Iterator<Item = InternalFilterKey>>,
+    mut filters: FilterIter<impl Iterator<Item=InternalFilterKey>>,
     handlers: &mut HashMap<InternalFilterKey, Vec<EventHandler>>,
     current_cause: &mut Cause,
     event_type: ComponentEventType,
@@ -676,14 +449,14 @@ fn invoke_handlers(
 }
 
 impl World {
-    fn flush_entity_destroy_actions(&mut self) {
+    pub(crate) fn flush_entity_destroy_actions(&mut self) {
         for (entity, causes) in mem::take(&mut self.entities_to_destroy) {
             self.entity_storage.delete_entity_data(entity.index);
             self.filter_manager.on_entity_destroyed(entity, causes);
         }
     }
 
-    fn flush_component_removals(&mut self) {
+    pub(crate) fn flush_component_removals(&mut self) {
         for (component_key, causes) in mem::take(&mut self.components_to_delete.after_disappear) {
             Self::remove_component_immediate(
                 &mut self.component_data_pools,
@@ -695,17 +468,17 @@ impl World {
             self.entity_component_index
                 .delete_component_type(component_key.entity.index, component_key.component_type);
             self.filter_manager
-                .on_component_removed(ComponentRemoveKey {
+                .on_component_removed(FilterComponentChange {
                     component_key,
                     causes,
                 })
         }
     }
 
-    fn generate_disappear_events(&mut self) {
+    pub(crate) fn generate_disappear_events(&mut self) {
         for (component_key, causes) in mem::take(&mut self.components_to_delete.before_disappear) {
             self.filter_manager
-                .generate_disappear_events(ComponentChangeKey {
+                .generate_disappear_events(FilterComponentChange {
                     component_key,
                     // TODO consider avoid cloning
                     causes: causes.clone(),
@@ -716,7 +489,7 @@ impl World {
         }
     }
 
-    fn schedule_destroyed_entities_component_removal(&mut self) {
+    pub(crate) fn schedule_destroyed_entities_component_removal(&mut self) {
         for (entity, causes) in mem::take(&mut self.entities_to_destroy) {
             for component_type in self
                 .entity_component_index
@@ -737,7 +510,7 @@ impl World {
         }
     }
 
-    fn invoke_signal_handler(&mut self) {
+    pub(crate) fn invoke_signal_handler(&mut self) {
         if let Some(signal) = self.signal_queue.signals.pop_front() {
             let manager = self.signal_managers.get_mut(&signal.payload_type).unwrap();
             manager.invoke(
@@ -748,108 +521,6 @@ impl World {
                 &mut self.filter_manager,
             );
         }
-    }
-}
-
-macro_rules! step_simple_a {
-    ($world:ident, $step:ident) => {
-        add_step_simple($world, stringify!($step), World::$step, &mut $step);
-    };
-}
-macro_rules! step_simple_b {
-    ($world:ident, $step:ident) => {
-        add_step_simple($world, stringify!($step), World::$step, &mut 0);
-    };
-}
-
-fn configure_pipeline(world: &mut World) {
-    let mut invoke_signal_handler = 0;
-    let mut schedule_destroyed_entities_component_removal = 0;
-    let mut generate_disappear_events = 0;
-    let mut flush_component_addition = 0;
-
-    step_simple_a!(world, invoke_signal_handler);
-    step_simple_a!(world, schedule_destroyed_entities_component_removal);
-    step_simple_a!(world, generate_disappear_events);
-    step_simple_b!(world, invoke_disappear_handlers);
-    step_simple_b!(world, flush_component_removals);
-    add_goto(
-        world,
-        "check_destroyed_entities_early",
-        |world| !world.entities_to_destroy.is_empty(),
-        schedule_destroyed_entities_component_removal,
-    );
-    add_goto(
-        world,
-        "check_removed_components_early",
-        |world| !world.components_to_delete.before_disappear.is_empty(),
-        generate_disappear_events,
-    );
-    step_simple_b!(world, flush_entity_destroy_actions);
-    step_simple_b!(world, flush_entity_create_actions);
-    step_simple_a!(world, flush_component_addition);
-    step_simple_b!(world, invoke_appear_handlers);
-    add_goto(
-        world,
-        "check_destroyed_entities_late",
-        |world| !world.entities_to_destroy.is_empty(),
-        schedule_destroyed_entities_component_removal,
-    );
-    add_goto(
-        world,
-        "check_removed_components_late",
-        |world| !world.components_to_delete.before_disappear.is_empty(),
-        generate_disappear_events,
-    );
-    add_goto(
-        world,
-        "check_added_components",
-        |world| !world.components_to_add.is_empty(),
-        flush_component_addition,
-    );
-    add_goto(
-        world,
-        "check_signals",
-        |world| !world.signal_queue.signals.is_empty(),
-        invoke_signal_handler,
-    );
-}
-
-fn add_step_simple(world: &mut World, name: &str, callback: fn(&mut World), index: &mut usize) {
-    *index = world.sequence.len();
-    world.sequence.push(Step {
-        name: name.to_string(),
-        callback: StepImpl::Fn(callback),
-    })
-}
-
-fn add_goto(
-    world: &mut World,
-    name: &str,
-    condition: fn(&World) -> bool,
-    destination_index: usize,
-) {
-    world.sequence.push(Step {
-        name: name.to_string(),
-        callback: StepImpl::Goto {
-            condition,
-            destination_index,
-        },
-    })
-}
-
-trait StepAction {
-    fn execute(world: &mut World, ctx: &mut ExecutionContext);
-    fn get_name() -> &'static str;
-}
-
-struct InvokeSignalHandler;
-
-impl StepAction for InvokeSignalHandler {
-    fn execute(_world: &mut World, _ctx: &mut ExecutionContext) {}
-
-    fn get_name() -> &'static str {
-        "InvokeSignalHandler"
     }
 }
 

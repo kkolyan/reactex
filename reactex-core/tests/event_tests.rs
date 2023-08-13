@@ -3,8 +3,8 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use reactex_core::ecs_filter;
-use reactex_core::world::World;
+use reactex_core::filter::filter_desc::ecs_filter;
+use reactex_core::world_mod::world::World;
 use reactex_macro::EcsComponent;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
@@ -22,7 +22,7 @@ fn AppearEventAvailableAfterComponentCreation()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddAppearHandler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -37,7 +37,7 @@ fn AppearEventNotAvailableBeforeCommit()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddAppearHandler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -51,7 +51,7 @@ fn EntityDisappearAvailableAfterComponentRemoval()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddDisappearHandler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -69,7 +69,7 @@ fn EntityDisappearNotAvailableBeforeCommit()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddDisappearHandler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -85,7 +85,7 @@ fn EntityDisappearNotAvailableBeforeRemoval()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddDisappearHandler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -100,7 +100,7 @@ fn EmptyFilterEntityAppearAfterEntityCreated()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddAppearHandler("test", ecs_filter!(), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.execute_all();
@@ -114,7 +114,7 @@ fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddDisappearHandler("test", ecs_filter!(), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(), move |entity| matched.borrow_mut().push(entity));
     }
     let _eA = world.create_entity();
     assert_eq!(matched.borrow().deref(), &vec!());
@@ -127,7 +127,7 @@ fn ABAppearEventForAB()
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.AddAppearHandler("test", ecs_filter!(A, B), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(A, B), move |entity| matched.borrow_mut().push(entity));
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();

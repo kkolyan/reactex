@@ -77,21 +77,21 @@
 //     }
 //     pub fn add_entity_signal_handler<TSignal>(
 //         &mut self,
-//         filter_key: FilterKey,
+//         filter_key: FilterDesc,
 //         callback: impl Fn(Ctx<TSignal>, EntityKey),
 //     ) {
 //         todo!()
 //     }
 //     pub fn add_entity_appear_handler(
 //         &mut self,
-//         filter_key: FilterKey,
+//         filter_key: FilterDesc,
 //         callback: impl Fn(Ctx, EntityKey),
 //     ) {
 //         todo!()
 //     }
 //     pub fn add_entity_disappear_handler(
 //         &mut self,
-//         filter_key: FilterKey,
+//         filter_key: FilterDesc,
 //         callback: impl Fn(Ctx, EntityKey),
 //     ) {
 //         todo!()
@@ -120,12 +120,12 @@
 // }
 //
 // pub trait IntoFilterKey {
-//     fn create_filter_key(storage: &impl ComponentTypeAware) -> FilterKey;
+//     fn create_filter_key(storage: &impl ComponentTypeAware) -> FilterDesc;
 // }
 //
 // impl<A: 'static, B: 'static> IntoFilterKey for (A, B) {
-//     fn create_filter_key(storage: &impl ComponentTypeAware) -> FilterKey {
-//         FilterKey::new(vec![
+//     fn create_filter_key(storage: &impl ComponentTypeAware) -> FilterDesc {
+//         FilterDesc::new(vec![
 //             storage.get_component_type::<A>(),
 //             storage.get_component_type::<B>(),
 //         ])
@@ -133,7 +133,7 @@
 // }
 //
 // impl<T: 'static> IntoFilterKey for (T, ) {
-//     fn create_filter_key(storage: &impl ComponentTypeAware) -> FilterKey {
-//         FilterKey::new(vec![storage.get_component_type::<T>()])
+//     fn create_filter_key(storage: &impl ComponentTypeAware) -> FilterDesc {
+//         FilterDesc::new(vec![storage.get_component_type::<T>()])
 //     }
 // }

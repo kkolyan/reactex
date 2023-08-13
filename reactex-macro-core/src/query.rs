@@ -63,7 +63,7 @@ fn query_internal(args: Result<CtxClosureParse>) -> Result<TokenStream> {
     let filter_vec = common::generate_filter_vec(&components);
 
     Ok(quote! {
-        let __filter_key__ : reactex::api::FilterKey = reactex::api::FilterKey::new(vec![#filter_vec]);
+        let __filter_key__ : reactex::api::FilterDesc = reactex::api::FilterDesc::new(vec![#filter_vec]);
         #ctx.state.query(
             &__filter_key__,
             #normalized,

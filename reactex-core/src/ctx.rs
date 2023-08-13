@@ -1,4 +1,4 @@
-// use crate::api::{FilterKey, WorldChanges};
+// use crate::api::{FilterDesc, WorldChanges};
 // use crate::entity::{EntityKey, InternalEntityKey};
 // use crate::mut_ref::Mut;
 // use crate::world_state::WorldState;
@@ -15,7 +15,7 @@
 //         todo!()
 //     }
 //
-//     pub fn query(&self, filter_key: &FilterKey, mut callback: impl FnMut(EntityKey)) {
+//     pub fn query(&self, filter_key: &FilterDesc, mut callback: impl FnMut(EntityKey)) {
 //     }
 //
 //     pub fn get_component<T: StaticComponentType>(&self, entity_key: EntityKey) -> Option<&T> {

@@ -1,39 +1,23 @@
-use crate::filter_manager::FilterManager;
-use crate::filter_manager::InternalFilterKey;
 use std::any::Any;
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::mem;
+use crate::cause::Cause;
+use crate::entity::EntityKey;
 
-use crate::pools::AbstractPool;
-use crate::pools::PoolKey;
-use crate::pools::SpecificPool;
-use crate::world::Cause;
-use crate::world::EntitySignalCallback;
-use crate::world::GlobalSignalCallback;
-use crate::world::Signal;
-use crate::world::SignalQueue;
-use crate::world::SignalSender;
+use crate::filter::filter_manager::{FilterManager, InternalFilterKey};
+use crate::world_mod::world::Signal;
+use crate::world_mod::signal_queue::SignalQueue;
+use crate::world_mod::signal_sender::SignalSender;
+use crate::world_mod::signal_storage::SignalStorage;
 
-pub struct SignalDataKey(usize);
-
-impl PoolKey for SignalDataKey {
-    fn as_usize(&self) -> usize {
-        self.0
-    }
-    fn from_usize(value: usize) -> Self {
-        SignalDataKey(value)
-    }
-}
-
-pub trait AbstractSignalManager {
+pub(crate) trait AbstractSignalManager {
     fn invoke(
         &mut self,
         signal: Signal,
         current_cause: &mut Cause,
         signal_queue: &mut SignalQueue,
         signal_storage: &mut SignalStorage,
-        x: &mut FilterManager,
+        filter_manager: &mut FilterManager,
     );
     fn as_any_mut(&mut self) -> AnySignalManager;
 }
@@ -42,29 +26,20 @@ pub struct AnySignalManager<'a> {
     any: &'a mut dyn Any,
 }
 
+impl<'a> AnySignalManager<'a> {
+    pub(crate) fn try_specialize<T: 'static>(self) -> Option<&'a mut SignalManager<T>> {
+        self.any.downcast_mut::<SignalManager<T>>()
+    }
+}
+
 pub struct EntitySignalHandler<T> {
     pub name: &'static str,
     pub callback: Box<EntitySignalCallback<T>>,
 }
 
 pub struct GlobalSignalHandler<T> {
-    name: &'static str,
-    callback: Box<GlobalSignalCallback<T>>,
-}
-
-impl<T> GlobalSignalHandler<T> {
-    pub(crate) fn new(
-        name: &'static str,
-        callback: Box<GlobalSignalCallback<T>>,
-    ) -> GlobalSignalHandler<T> {
-        GlobalSignalHandler { name, callback }
-    }
-}
-
-impl<'a> AnySignalManager<'a> {
-    pub(crate) fn try_specialize<T: 'static>(self) -> Option<&'a mut SignalManager<T>> {
-        self.any.downcast_mut::<SignalManager<T>>()
-    }
+    pub(crate) name: &'static str,
+    pub(crate) callback: Box<GlobalSignalCallback<T>>,
 }
 
 pub(crate) struct SignalManager<T> {
@@ -72,20 +47,8 @@ pub(crate) struct SignalManager<T> {
     pub(crate) handlers: HashMap<InternalFilterKey, Vec<EntitySignalHandler<T>>>,
 }
 
-pub struct SignalStorage {
-    pub payloads: HashMap<TypeId, Box<dyn AbstractPool<SignalDataKey>>>,
-}
-
-impl SignalStorage {
-    pub(crate) fn new() -> SignalStorage {
-        SignalStorage {
-            payloads: Default::default(),
-        }
-    }
-}
-
-impl<T> SignalManager<T> {
-    pub(crate) fn new() -> Self {
+impl<T> Default for SignalManager<T> {
+    fn default() -> Self {
         SignalManager {
             global_handlers: Default::default(),
             handlers: Default::default(),
@@ -157,3 +120,6 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
         AnySignalManager { any: self }
     }
 }
+
+pub type GlobalSignalCallback<T> = dyn Fn(&T, &mut SignalSender);
+pub type EntitySignalCallback<T> = dyn Fn(&T, EntityKey, &mut SignalSender);

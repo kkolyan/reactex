@@ -1,4 +1,4 @@
-// use crate::api::{ComponentType, ComponentTypeAware, FilterKey, GetRef};
+// use crate::api::{ComponentType, ComponentTypeAware, FilterDesc, GetRef};
 // use crate::mut_ref::Mut;
 // use std::any::TypeId;
 // use crate::entity::EntityKey;
@@ -6,7 +6,7 @@
 // pub struct WorldState {}
 //
 // impl WorldState {
-//     pub fn query(&self, filter_key: &FilterKey, mut callback: impl FnMut(EntityKey)) {
+//     pub fn query(&self, filter_key: &FilterDesc, mut callback: impl FnMut(EntityKey)) {
 //     }
 //
 //     pub fn get_component<T: GetRef + 'static>(&self, entity_key: EntityKey) -> Option<&T> {

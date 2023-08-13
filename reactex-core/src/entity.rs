@@ -1,6 +1,6 @@
-use crate::entity_storage::EntityStorage;
-use crate::entity_storage::ValidateUncommitted;
-use crate::world::EntityError;
+use crate::world_mod::entity_storage::EntityStorage;
+use crate::world_mod::entity_storage::ValidateUncommitted;
+use crate::world_mod::world::EntityError;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EntityKey {
