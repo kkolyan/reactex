@@ -1,5 +1,6 @@
+use crate::world_mod::execution::Step;
+use crate::world_mod::execution::StepImpl;
 use crate::world_mod::world::World;
-use crate::world_mod::execution::{Step, StepImpl};
 
 macro_rules! step_simple_a {
     ($world:ident, $step:ident) => {

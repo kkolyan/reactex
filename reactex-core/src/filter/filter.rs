@@ -1,11 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use crate::cause::Cause;
 use crate::entity::InternalEntityKey;
-use crate::world_mod::entity_storage::EntityStorage;
 use crate::filter::filter_desc::FilterDesc;
 use crate::filter::filter_manager::InternalFilterKey;
 use crate::opt_tiny_vec::OptTinyVec;
-use crate::cause::Cause;
 use crate::world_mod::component_mapping::ComponentMappingStorage;
+use crate::world_mod::entity_storage::EntityStorage;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub(crate) struct Filter {
     pub criteria: FilterDesc,
@@ -34,13 +35,9 @@ impl Filter {
         component_mappings: &ComponentMappingStorage,
     ) {
         for entity in entity_storage.get_all() {
-            let matches = self
-                .criteria
-                .component_types
-                .iter()
-                .all(|component_type| {
-                    component_mappings.has_component_no_validation(entity.index, *component_type)
-                });
+            let matches = self.criteria.component_types.iter().all(|component_type| {
+                component_mappings.has_component_no_validation(entity.index, *component_type)
+            });
             if matches {
                 self.matched_entities.as_mut().unwrap().insert(entity);
             }

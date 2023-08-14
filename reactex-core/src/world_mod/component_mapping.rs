@@ -1,11 +1,12 @@
-use std::collections::HashMap;
 use crate::component::ComponentType;
 use crate::entity::EntityIndex;
 use crate::pools::PoolKey;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct ComponentMappingStorage {
-    pub(crate) data_by_entity_by_type: HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
+    pub(crate) data_by_entity_by_type:
+        HashMap<ComponentType, HashMap<EntityIndex, ComponentDataKey>>,
 }
 
 impl ComponentMappingStorage {

@@ -1,8 +1,8 @@
+use crate::cause::Cause;
+use crate::world_mod::signal_storage::SignalDataKey;
+use crate::world_mod::world::Signal;
 use std::any::TypeId;
 use std::collections::VecDeque;
-use crate::cause::Cause;
-use crate::world_mod::world::Signal;
-use crate::world_mod::signal_storage::SignalDataKey;
 
 #[derive(Default)]
 pub struct SignalQueue {

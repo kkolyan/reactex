@@ -1,4 +1,5 @@
-use crate::component::{ComponentType, StaticComponentType};
+use crate::component::ComponentType;
+use crate::component::StaticComponentType;
 use crate::entity::EntityIndex;
 use crate::lang::boxed_slice;
 
@@ -28,16 +29,13 @@ impl EntityComponentIndex {
         }
     }
 
-    pub fn add_component_type(
-        &mut self,
-        entity: EntityIndex,
-        component_type: ComponentType,
-    ) {
+    pub fn add_component_type(&mut self, entity: EntityIndex, component_type: ComponentType) {
         let component_count_before =
             *self.component_count.get(entity.index as usize).unwrap() as usize;
         if component_count_before >= self.component_types_width {
-            let mut new_table = vec![NoneComponent::get_component_type(); self.component_types.len() * 2]
-                .into_boxed_slice();
+            let mut new_table =
+                vec![NoneComponent::get_component_type(); self.component_types.len() * 2]
+                    .into_boxed_slice();
             let row_size_before = self.component_types_width;
             self.component_types_width *= 2;
             let row_size_after = self.component_types_width;
@@ -52,15 +50,14 @@ impl EntityComponentIndex {
         }
 
         let offset = self.component_count.get_mut(entity.index as usize).unwrap();
-        *self.component_types.get_mut(entity.index as usize * self.component_types_width + *offset as usize).unwrap() = component_type;
+        *self
+            .component_types
+            .get_mut(entity.index as usize * self.component_types_width + *offset as usize)
+            .unwrap() = component_type;
         *offset += 1;
     }
 
-    pub fn delete_component_type(
-        &mut self,
-        entity: EntityIndex,
-        component_type: ComponentType,
-    ) {
+    pub fn delete_component_type(&mut self, entity: EntityIndex, component_type: ComponentType) {
         let entity_index = entity.index as usize;
         for i in 0..self.component_count[entity_index] as usize {
             let this_component_type =
@@ -79,10 +76,11 @@ impl EntityComponentIndex {
     pub fn get_component_types(
         &self,
         entity: EntityIndex,
-    ) -> impl Iterator<Item=ComponentType> + '_ {
+    ) -> impl Iterator<Item = ComponentType> + '_ {
         let entity = entity.index as usize;
 
-        let copied = self.component_types
+        let copied = self
+            .component_types
             .iter()
             .skip(entity * self.component_types_width)
             .take(self.component_count[entity] as usize)
@@ -95,7 +93,10 @@ impl EntityComponentIndex {
         let entity = entity.index as usize;
         if entity >= self.component_count.len() {
             expand_slice(&mut self.component_count, Default::default());
-            expand_slice(&mut self.component_types, NoneComponent::get_component_type());
+            expand_slice(
+                &mut self.component_types,
+                NoneComponent::get_component_type(),
+            );
         }
         self.component_count[entity] = 0;
     }
@@ -106,7 +107,6 @@ fn expand_slice<T: Clone>(slice: &mut Box<[T]>, default: T) {
     dst[0..slice.len()].clone_from_slice(slice);
     *slice = dst;
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -125,7 +125,14 @@ mod tests {
         components.add_component_type(e1.index, ComponentType { index: 13 });
 
         let component_types = components.get_component_types(e1.index).collect::<Vec<_>>();
-        assert_eq!(component_types, vec![ComponentType { index: 11 }, ComponentType { index: 12 }, ComponentType { index: 13 }])
+        assert_eq!(
+            component_types,
+            vec![
+                ComponentType { index: 11 },
+                ComponentType { index: 12 },
+                ComponentType { index: 13 }
+            ]
+        )
     }
 
     #[test]
@@ -140,6 +147,13 @@ mod tests {
         components.add_component_type(e1.index, ComponentType { index: 13 });
 
         let component_types = components.get_component_types(e1.index).collect::<Vec<_>>();
-        assert_eq!(component_types, vec![ComponentType { index: 11 }, ComponentType { index: 12 }, ComponentType { index: 13 }])
+        assert_eq!(
+            component_types,
+            vec![
+                ComponentType { index: 11 },
+                ComponentType { index: 12 },
+                ComponentType { index: 13 }
+            ]
+        )
     }
 }

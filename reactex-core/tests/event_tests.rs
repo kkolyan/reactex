@@ -1,28 +1,27 @@
 #![allow(non_snake_case)]
 
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::rc::Rc;
 use reactex_core::filter::filter_desc::ecs_filter;
 use reactex_core::world_mod::world::World;
 use reactex_macro::EcsComponent;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
-struct A
-{}
+struct A {}
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
-struct B
-{}
+struct B {}
 
 #[test]
-fn AppearEventAvailableAfterComponentCreation()
-{
+fn AppearEventAvailableAfterComponentCreation() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(A), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -31,13 +30,14 @@ fn AppearEventAvailableAfterComponentCreation()
 }
 
 #[test]
-fn AppearEventNotAvailableBeforeCommit()
-{
+fn AppearEventNotAvailableBeforeCommit() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(A), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -45,13 +45,14 @@ fn AppearEventNotAvailableBeforeCommit()
 }
 
 #[test]
-fn EntityDisappearAvailableAfterComponentRemoval()
-{
+fn EntityDisappearAvailableAfterComponentRemoval() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -63,13 +64,14 @@ fn EntityDisappearAvailableAfterComponentRemoval()
 }
 
 #[test]
-fn EntityDisappearNotAvailableBeforeCommit()
-{
+fn EntityDisappearNotAvailableBeforeCommit() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -79,13 +81,14 @@ fn EntityDisappearNotAvailableBeforeCommit()
 }
 
 #[test]
-fn EntityDisappearNotAvailableBeforeRemoval()
-{
+fn EntityDisappearNotAvailableBeforeRemoval() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
@@ -94,13 +97,14 @@ fn EntityDisappearNotAvailableBeforeRemoval()
 }
 
 #[test]
-fn EmptyFilterEntityAppearAfterEntityCreated()
-{
+fn EmptyFilterEntityAppearAfterEntityCreated() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.execute_all();
@@ -108,26 +112,28 @@ fn EmptyFilterEntityAppearAfterEntityCreated()
 }
 
 #[test]
-fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted()
-{
+fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(), move |entity| matched.borrow_mut().push(entity));
+        world.add_disappear_handler("test", ecs_filter!(), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let _eA = world.create_entity();
     assert_eq!(matched.borrow().deref(), &vec!());
 }
 
 #[test]
-fn ABAppearEventForAB()
-{
+fn ABAppearEventForAB() {
     let matched = Rc::new(RefCell::new(Vec::new()));
     let mut world = World::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A, B), move |entity| matched.borrow_mut().push(entity));
+        world.add_appear_handler("test", ecs_filter!(A, B), move |entity| {
+            matched.borrow_mut().push(entity)
+        });
     }
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();

@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use crate::cause::Cause;
 use crate::entity::InternalEntityKey;
-use crate::world_mod::entity_component_index::EntityComponentIndex;
 use crate::filter::events::FilterComponentChange;
 use crate::filter::filter_manager::FilterManager;
 use crate::opt_tiny_vec::OptTinyVec;
-use crate::cause::Cause;
+use crate::world_mod::entity_component_index::EntityComponentIndex;
+use std::collections::HashSet;
 
 impl FilterManager {
     pub fn on_component_added(
@@ -79,47 +79,31 @@ impl FilterManager {
         }
     }
 
-    pub fn on_entity_destroyed(
-        &mut self,
-        entity: InternalEntityKey,
-        causes: OptTinyVec<Cause>,
-    ) {
-        let relevant_key = self.get_all_entities_filter()
-            .map(|filter| {
-                if let Some(matched_entities) = &mut filter.matched_entities {
-                    matched_entities.remove(&entity);
-                }
-                if let Some(disappear_events) = &mut filter.disappear_events {
-                    disappear_events
-                        .entry(entity)
-                        .or_default()
-                        .extend(causes);
-                }
-                filter.unique_key
-            });
+    pub fn on_entity_destroyed(&mut self, entity: InternalEntityKey, causes: OptTinyVec<Cause>) {
+        let relevant_key = self.get_all_entities_filter().map(|filter| {
+            if let Some(matched_entities) = &mut filter.matched_entities {
+                matched_entities.remove(&entity);
+            }
+            if let Some(disappear_events) = &mut filter.disappear_events {
+                disappear_events.entry(entity).or_default().extend(causes);
+            }
+            filter.unique_key
+        });
         if let Some(key) = relevant_key {
             self.with_new_disappear_events.insert(key);
         }
     }
 
-    pub fn on_entity_created(
-        &mut self,
-        entity: InternalEntityKey,
-        causes: OptTinyVec<Cause>,
-    ) {
-        let relevant_key = self.get_all_entities_filter()
-            .map(|filter| {
-                if let Some(matched_entities) = &mut filter.matched_entities {
-                    matched_entities.insert(entity);
-                }
-                if let Some(appear_events) = &mut filter.appear_events {
-                    appear_events
-                        .entry(entity)
-                        .or_default()
-                        .extend(causes);
-                }
-                filter.unique_key
-            });
+    pub fn on_entity_created(&mut self, entity: InternalEntityKey, causes: OptTinyVec<Cause>) {
+        let relevant_key = self.get_all_entities_filter().map(|filter| {
+            if let Some(matched_entities) = &mut filter.matched_entities {
+                matched_entities.insert(entity);
+            }
+            if let Some(appear_events) = &mut filter.appear_events {
+                appear_events.entry(entity).or_default().extend(causes);
+            }
+            filter.unique_key
+        });
         if let Some(unique_key) = relevant_key {
             self.with_new_appear_events.insert(unique_key);
         }

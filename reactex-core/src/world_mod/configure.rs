@@ -1,8 +1,10 @@
 use crate::entity::EntityKey;
 use crate::filter::filter_desc::FilterDesc;
-use crate::world_mod::signal_manager::{EntitySignalHandler, GlobalSignalHandler};
+use crate::world_mod::signal_manager::EntitySignalHandler;
+use crate::world_mod::signal_manager::GlobalSignalHandler;
 use crate::world_mod::signal_sender::SignalSender;
-use crate::world_mod::world::{EventHandler, World};
+use crate::world_mod::world::EventHandler;
+use crate::world_mod::world::World;
 
 impl World {
     pub fn add_global_signal_handler<T: 'static>(
@@ -37,11 +39,17 @@ impl World {
             });
     }
 
-    pub fn add_disappear_handler(&mut self, name: &'static str, filter_key: FilterDesc, callback: impl Fn(EntityKey) + 'static) {
+    pub fn add_disappear_handler(
+        &mut self,
+        name: &'static str,
+        filter_key: FilterDesc,
+        callback: impl Fn(EntityKey) + 'static,
+    ) {
         let filter = self.filter_manager.get_filter(filter_key);
         filter.track_disappear_events();
         let filter_key = filter.unique_key;
-        self.on_disappear.entry(filter_key)
+        self.on_disappear
+            .entry(filter_key)
             .or_default()
             .push(EventHandler {
                 name,
@@ -49,11 +57,17 @@ impl World {
             });
     }
 
-    pub fn add_appear_handler(&mut self, name: &'static str, filter_key: FilterDesc, callback: impl Fn(EntityKey) + 'static) {
+    pub fn add_appear_handler(
+        &mut self,
+        name: &'static str,
+        filter_key: FilterDesc,
+        callback: impl Fn(EntityKey) + 'static,
+    ) {
         let filter = self.filter_manager.get_filter(filter_key);
         filter.track_appear_events();
         let filter_key = filter.unique_key;
-        self.on_appear.entry(filter_key)
+        self.on_appear
+            .entry(filter_key)
             .or_default()
             .push(EventHandler {
                 name,

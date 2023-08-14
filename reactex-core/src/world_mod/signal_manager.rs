@@ -1,14 +1,15 @@
+use crate::cause::Cause;
+use crate::entity::EntityKey;
 use std::any::Any;
 use std::collections::HashMap;
 use std::mem;
-use crate::cause::Cause;
-use crate::entity::EntityKey;
 
-use crate::filter::filter_manager::{FilterManager, InternalFilterKey};
-use crate::world_mod::world::Signal;
+use crate::filter::filter_manager::FilterManager;
+use crate::filter::filter_manager::InternalFilterKey;
 use crate::world_mod::signal_queue::SignalQueue;
 use crate::world_mod::signal_sender::SignalSender;
 use crate::world_mod::signal_storage::SignalStorage;
+use crate::world_mod::world::Signal;
 
 pub(crate) trait AbstractSignalManager {
     fn invoke(
@@ -93,7 +94,9 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
 
         for (filter, handlers) in &mut self.handlers {
             for handler in handlers {
-                if let Some(matched_entities) = &filter_manager.get_filter_internal(*filter).matched_entities {
+                if let Some(matched_entities) =
+                    &filter_manager.get_filter_internal(*filter).matched_entities
+                {
                     let prev_cause = mem::replace(
                         current_cause,
                         current_cause.create_consequence(handler.name.to_string()),
@@ -107,7 +110,8 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
                                 signal_queue,
                                 current_cause,
                                 signal_storage,
-                            });
+                            },
+                        );
                     }
 
                     *current_cause = prev_cause;

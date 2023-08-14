@@ -1,16 +1,15 @@
-use crate::typed_index_vec::TiVec;
 use crate::component::ComponentType;
+use crate::filter::events::FilterComponentChange;
+use crate::filter::filter::Filter;
 use crate::filter::filter_desc::FilterDesc;
+use crate::filter::filter_manager_iter::FilterIter;
+use crate::typed_index_vec::TiVec;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::mem;
-use crate::filter::events::FilterComponentChange;
-use crate::filter::filter::Filter;
-use crate::filter::filter_manager_iter::FilterIter;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct InternalFilterKey(pub usize);
-
 
 #[derive(Default)]
 pub(crate) struct FilterManager {
@@ -25,10 +24,9 @@ pub(crate) struct FilterManager {
 
 // basic operations
 impl FilterManager {
-
     pub fn take_with_new_disappear_events(
         &mut self,
-    ) -> FilterIter<impl Iterator<Item=InternalFilterKey> + '_> {
+    ) -> FilterIter<impl Iterator<Item = InternalFilterKey> + '_> {
         FilterIter {
             source: &mut self.owned,
             keys: mem::take(&mut self.with_new_disappear_events).into_iter(),
@@ -37,7 +35,7 @@ impl FilterManager {
 
     pub fn take_with_new_appear_events(
         &mut self,
-    ) -> FilterIter<impl Iterator<Item=InternalFilterKey> + '_> {
+    ) -> FilterIter<impl Iterator<Item = InternalFilterKey> + '_> {
         FilterIter {
             source: &mut self.owned,
             keys: mem::take(&mut self.with_new_appear_events).into_iter(),
@@ -48,10 +46,14 @@ impl FilterManager {
         self.owned.get_mut(&key).unwrap()
     }
 
-    pub fn get_by_component_type(&mut self, component_type: ComponentType) -> FilterIter<impl Iterator<Item=InternalFilterKey> + '_> {
+    pub fn get_by_component_type(
+        &mut self,
+        component_type: ComponentType,
+    ) -> FilterIter<impl Iterator<Item = InternalFilterKey> + '_> {
         FilterIter {
             source: &mut self.owned,
-            keys: self.by_component_type
+            keys: self
+                .by_component_type
                 .get_mut(&component_type)
                 .into_iter()
                 .flat_map(|it| it.iter().copied()),
@@ -61,7 +63,7 @@ impl FilterManager {
     pub fn get_all_entities_filter(&mut self) -> Option<&mut Filter> {
         match self.all_entities {
             None => None,
-            Some(it) => self.owned.get_mut(&it)
+            Some(it) => self.owned.get_mut(&it),
         }
     }
 

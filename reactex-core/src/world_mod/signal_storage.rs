@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use crate::pools::AbstractPool;
+use crate::pools::PoolKey;
 use std::any::TypeId;
-use crate::pools::{AbstractPool, PoolKey};
+use std::collections::HashMap;
 
 pub struct SignalStorage {
     pub payloads: HashMap<TypeId, Box<dyn AbstractPool<SignalDataKey>>>,
@@ -17,6 +18,10 @@ impl SignalStorage {
 pub struct SignalDataKey(usize);
 
 impl PoolKey for SignalDataKey {
-    fn as_usize(&self) -> usize { self.0 }
-    fn from_usize(value: usize) -> Self { SignalDataKey(value) }
+    fn as_usize(&self) -> usize {
+        self.0
+    }
+    fn from_usize(value: usize) -> Self {
+        SignalDataKey(value)
+    }
 }

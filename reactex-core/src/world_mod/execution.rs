@@ -1,5 +1,5 @@
-use log::trace;
 use crate::world_mod::world::World;
+use log::trace;
 
 pub struct Step {
     pub name: String,

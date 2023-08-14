@@ -1,28 +1,37 @@
-use justerror::Error;
-use std::collections::HashMap;
-use std::mem;
-use std::any::TypeId;
-use log::trace;
 use crate::cause::Cause;
-use crate::component::{ComponentType, StaticComponentType};
-use crate::entity::{EntityIndex, EntityKey, InternalEntityKey};
+use crate::component::ComponentType;
+use crate::component::StaticComponentType;
+use crate::entity::EntityIndex;
+use crate::entity::EntityKey;
+use crate::entity::InternalEntityKey;
 use crate::filter::events::FilterComponentChange;
 use crate::filter::filter_desc::FilterDesc;
-use crate::filter::filter_manager::{FilterManager, InternalFilterKey};
+use crate::filter::filter_manager::FilterManager;
+use crate::filter::filter_manager::InternalFilterKey;
 use crate::filter::filter_manager_iter::FilterIter;
 use crate::opt_tiny_vec::OptTinyVec;
-use crate::pools::{AbstractPool, SpecificPool};
-use crate::world_mod::world::ComponentNotFoundError::{Data, Mapping};
-use crate::world_mod::component_mapping::{ComponentDataKey, ComponentMappingStorage};
+use crate::pools::AbstractPool;
+use crate::pools::SpecificPool;
+use crate::world_mod::component_mapping::ComponentDataKey;
+use crate::world_mod::component_mapping::ComponentMappingStorage;
 use crate::world_mod::entity_component_index::EntityComponentIndex;
 use crate::world_mod::entity_storage::EntityStorage;
-use crate::world_mod::entity_storage::ValidateUncommitted::{AllowUncommitted, DenyUncommitted};
+use crate::world_mod::entity_storage::ValidateUncommitted::AllowUncommitted;
+use crate::world_mod::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::world_mod::execution::Step;
 use crate::world_mod::pipeline;
-use crate::world_mod::signal_manager::{AbstractSignalManager, SignalManager};
+use crate::world_mod::signal_manager::AbstractSignalManager;
+use crate::world_mod::signal_manager::SignalManager;
 use crate::world_mod::signal_queue::SignalQueue;
 use crate::world_mod::signal_sender::SignalSender;
-use crate::world_mod::signal_storage::{SignalDataKey, SignalStorage};
+use crate::world_mod::signal_storage::SignalDataKey;
+use crate::world_mod::signal_storage::SignalStorage;
+use crate::world_mod::world::ComponentNotFoundError::Data;
+use crate::world_mod::world::ComponentNotFoundError::Mapping;
+use justerror::Error;
+use std::any::TypeId;
+use std::collections::HashMap;
+use std::mem;
 
 pub struct World {
     pub(crate) entity_storage: EntityStorage,
@@ -31,7 +40,8 @@ pub struct World {
     entities_to_commit: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
     pub(crate) components_to_delete: DeleteQueue,
     pub(crate) components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
-    component_data_pools: HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
+    pub(crate) component_data_pools:
+        HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
     pub(crate) component_mappings: ComponentMappingStorage,
     current_cause: Cause,
     pub(crate) filter_manager: FilterManager,
@@ -55,7 +65,6 @@ impl World {
 }
 
 impl World {
-
     pub(crate) fn get_signal_manager<T: 'static>(&mut self) -> &mut SignalManager<T> {
         self.signal_managers
             .entry(TypeId::of::<T>())
@@ -231,43 +240,9 @@ impl World {
         }
         Ok(())
     }
+}
 
-    pub fn has_component<T: StaticComponentType>(&self, entity: EntityKey) -> WorldResult<bool> {
-        let entity = entity
-            .validate(&self.entity_storage, DenyUncommitted)?
-            .index;
-        Ok(self
-            .component_mappings
-            .data_by_entity_by_type
-            .get(&T::get_component_type())
-            .map(|it| it.contains_key(&entity))
-            .unwrap_or(false))
-    }
-
-    pub fn get_component<T: StaticComponentType>(
-        &self,
-        entity: EntityKey,
-    ) -> WorldResult<Option<&T>> {
-        let entity = entity
-            .validate(&self.entity_storage, DenyUncommitted)?
-            .index;
-        Ok(self.get_component_no_validation(entity))
-    }
-
-    fn get_component_no_validation<T: StaticComponentType>(
-        &self,
-        entity: EntityIndex,
-    ) -> Option<&T> {
-        let data = self
-            .component_mappings
-            .data_by_entity_by_type
-            .get(&T::get_component_type())?
-            .get(&entity)?;
-        let instance = self.get_component_data::<T>()?.get(data);
-        trace!("component found: {:?}", instance);
-        instance
-    }
-
+impl World {
     pub fn create_entity(&mut self) -> EntityKey {
         let entity = self.entity_storage.new_entity();
         self.entity_component_index.add_entity(entity.index);
@@ -309,7 +284,8 @@ impl World {
             .validate(&self.entity_storage, AllowUncommitted)
             .is_ok()
     }
-
+}
+impl World {
     fn remove_component_immediate(
         component_data_pools: &mut HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
         mappings: &mut ComponentMappingStorage,
@@ -325,15 +301,6 @@ impl World {
             .get_mut(&component_type)
             .unwrap()
             .del(&data);
-    }
-
-    fn get_component_data<T: StaticComponentType>(
-        &self,
-    ) -> Option<&SpecificPool<ComponentDataKey, T>> {
-        self.component_data_pools
-            .get(&T::get_component_type())?
-            .as_any()
-            .try_specialize::<T>()
     }
 
     fn get_component_data_mut<T: StaticComponentType>(
@@ -356,7 +323,8 @@ impl World {
             .entry(component_type)
             .or_default()
     }
-
+}
+impl World {
     pub(crate) fn flush_entity_create_actions(&mut self) {
         for (task, causes) in mem::take(&mut self.entities_to_commit) {
             self.entity_storage.mark_committed(task.index);
@@ -423,7 +391,7 @@ enum ComponentEventType {
 }
 
 fn invoke_handlers(
-    mut filters: FilterIter<impl Iterator<Item=InternalFilterKey>>,
+    mut filters: FilterIter<impl Iterator<Item = InternalFilterKey>>,
     handlers: &mut HashMap<InternalFilterKey, Vec<EventHandler>>,
     current_cause: &mut Cause,
     event_type: ComponentEventType,

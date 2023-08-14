@@ -1,8 +1,9 @@
-use std::any::TypeId;
 use crate::cause::Cause;
 use crate::pools::SpecificPool;
 use crate::world_mod::signal_queue::SignalQueue;
-use crate::world_mod::signal_storage::{SignalDataKey, SignalStorage};
+use crate::world_mod::signal_storage::SignalDataKey;
+use crate::world_mod::signal_storage::SignalStorage;
+use std::any::TypeId;
 
 pub struct SignalSender<'a> {
     pub(crate) signal_queue: &'a mut SignalQueue,

@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
 
+use reactex_core::filter::filter_desc::ecs_filter;
 use reactex_core::world_mod::world::World;
+use reactex_macro::EcsComponent;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
-use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_macro::EcsComponent;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}
@@ -135,10 +135,14 @@ fn EntityMatchedAndSignalReceived() {
     {
         let received_signals = received_signals.clone();
         let matched_entities = matched_entities.clone();
-        world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |signal, entity, _signal_queue| {
-            received_signals.borrow_mut().push(*signal);
-            matched_entities.borrow_mut().push(entity)
-        });
+        world.add_entity_signal_handler::<Signal>(
+            "test",
+            ecs_filter!(A),
+            move |signal, entity, _signal_queue| {
+                received_signals.borrow_mut().push(*signal);
+                matched_entities.borrow_mut().push(entity)
+            },
+        );
     }
 
     let e1 = world.create_entity();
@@ -160,10 +164,14 @@ fn NotEntityMatchedAndSignalReceived() {
     {
         let received_signals = received_signals.clone();
         let matched_entities = matched_entities.clone();
-        world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |signal, entity, _signal_queue| {
-            received_signals.borrow_mut().push(*signal);
-            matched_entities.borrow_mut().push(entity)
-        });
+        world.add_entity_signal_handler::<Signal>(
+            "test",
+            ecs_filter!(A),
+            move |signal, entity, _signal_queue| {
+                received_signals.borrow_mut().push(*signal);
+                matched_entities.borrow_mut().push(entity)
+            },
+        );
     }
 
     let _e1 = world.create_entity();

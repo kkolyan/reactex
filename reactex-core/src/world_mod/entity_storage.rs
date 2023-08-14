@@ -1,10 +1,14 @@
+use crate::entity::EntityGeneration;
+use crate::entity::EntityIndex;
+use crate::entity::InternalEntityKey;
+use crate::world_mod::entity_storage::ValidateUncommitted::DenyUncommitted;
+use crate::world_mod::world::EntityError;
+use crate::world_mod::world::EntityError::IsStale;
+use crate::world_mod::world::EntityError::NotCommitted;
+use crate::world_mod::world::EntityError::NotExists;
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Not;
-use crate::entity::{EntityGeneration, EntityIndex, InternalEntityKey};
-use crate::world_mod::world::EntityError;
-use crate::world_mod::world::EntityError::{IsStale, NotCommitted, NotExists};
-use crate::world_mod::entity_storage::ValidateUncommitted::DenyUncommitted;
 
 pub(crate) struct EntityStorage {
     entities: Box<[EntityBox]>,

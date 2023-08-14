@@ -1,6 +1,7 @@
 use crate::filter::filter::Filter;
 use crate::filter::filter_manager::InternalFilterKey;
-use crate::typed_index_vec::{TiVec, TiVecKey};
+use crate::typed_index_vec::TiVec;
+use crate::typed_index_vec::TiVecKey;
 
 impl TiVecKey for InternalFilterKey {
     fn from_index(index: usize) -> Self {
