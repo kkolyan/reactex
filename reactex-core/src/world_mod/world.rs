@@ -10,9 +10,13 @@ use crate::filter::filter_manager::FilterManager;
 use crate::filter::filter_manager::InternalFilterKey;
 use crate::filter::filter_manager_iter::FilterIter;
 use crate::opt_tiny_vec::OptTinyVec;
+use crate::pool_pump::AbstractPoolPump;
+use crate::pool_pump::SpecificPoolPump;
 use crate::pools::AbstractPool;
-use crate::world_mod::component_pool_manager::{ComponentDataKey, TempComponentDataKey};
 use crate::world_mod::component_mapping::ComponentMappingStorage;
+use crate::world_mod::component_pool_manager::ComponentDataKey;
+use crate::world_mod::component_pool_manager::ComponentPoolManager;
+use crate::world_mod::component_pool_manager::TempComponentDataKey;
 use crate::world_mod::entity_component_index::EntityComponentIndex;
 use crate::world_mod::entity_storage::EntityStorage;
 use crate::world_mod::entity_storage::ValidateUncommitted::AllowUncommitted;
@@ -28,11 +32,9 @@ use crate::world_mod::signal_storage::SignalStorage;
 use crate::world_mod::world::ComponentNotFoundError::Data;
 use crate::world_mod::world::ComponentNotFoundError::Mapping;
 use justerror::Error;
-use std::any::{TypeId};
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::mem;
-use crate::pool_pump::{AbstractPoolPump, SpecificPoolPump};
-use crate::world_mod::component_pool_manager::ComponentPoolManager;
 
 pub struct World {
     pub(crate) entity_storage: EntityStorage,
@@ -52,7 +54,8 @@ pub struct World {
     pub(crate) signal_queue: SignalQueue,
     signal_storage: SignalStorage,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
-    component_data_pumps: HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
+    component_data_pumps:
+        HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
 }
 
 impl World {
@@ -208,11 +211,14 @@ impl World {
 
         self.component_data_pumps
             .entry(T::get_component_type())
-            .or_insert(Box::<SpecificPoolPump<TempComponentDataKey, ComponentDataKey, T>>::default());
+            .or_insert(Box::<
+                SpecificPoolPump<TempComponentDataKey, ComponentDataKey, T>,
+            >::default());
 
         self.component_data.get_pool_or_create::<T>();
 
-        let data = self.component_data_uncommitted
+        let data = self
+            .component_data_uncommitted
             .get_pool_or_create::<T>()
             .add(component);
 
@@ -279,7 +285,6 @@ impl World {
     }
 }
 impl World {
-
     fn get_component_mapping_mut(
         &mut self,
         component_type: ComponentType,
@@ -307,13 +312,18 @@ impl World {
             let mut all_causes = OptTinyVec::single(chosen_version.cause);
             all_causes.extend(versions.map(|it| it.cause));
 
-            let chosen_version = self.component_data_pumps
+            let chosen_version = self
+                .component_data_pumps
                 .get(&component_key.component_type)
                 .unwrap()
                 .do_move(
-                    self.component_data_uncommitted.get_pool_mut(component_key.component_type).unwrap(),
-                    self.component_data.get_pool_mut(component_key.component_type).unwrap(),
-                    &chosen_version.data
+                    self.component_data_uncommitted
+                        .get_pool_mut(component_key.component_type)
+                        .unwrap(),
+                    self.component_data
+                        .get_pool_mut(component_key.component_type)
+                        .unwrap(),
+                    &chosen_version.data,
                 );
 
             let mapping = self
@@ -400,7 +410,8 @@ impl World {
 
     pub(crate) fn flush_component_removals(&mut self) {
         for (component_key, causes) in mem::take(&mut self.components_to_delete.after_disappear) {
-            let data_key = self.component_mappings
+            let data_key = self
+                .component_mappings
                 .data_by_entity_by_type
                 .get_mut(&component_key.component_type)
                 .unwrap()

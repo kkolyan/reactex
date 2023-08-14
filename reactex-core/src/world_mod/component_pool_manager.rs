@@ -1,15 +1,19 @@
+use crate::component::ComponentType;
+use crate::component::StaticComponentType;
+use crate::pools::AbstractPool;
+use crate::pools::PoolKey;
+use crate::pools::SpecificPool;
 use std::collections::HashMap;
-use crate::component::{ComponentType, StaticComponentType};
-use crate::pools::{AbstractPool, PoolKey, SpecificPool};
-
 
 pub(crate) struct ComponentPoolManager<TComponentDataKey> {
-    by_type: HashMap<ComponentType, Box<dyn AbstractPool<TComponentDataKey>>>
+    by_type: HashMap<ComponentType, Box<dyn AbstractPool<TComponentDataKey>>>,
 }
 
-impl <T> Default for ComponentPoolManager<T> {
+impl<T> Default for ComponentPoolManager<T> {
     fn default() -> Self {
-        Self { by_type: Default::default() }
+        Self {
+            by_type: Default::default(),
+        }
     }
 }
 
@@ -21,7 +25,7 @@ impl ComponentPoolManager<TempComponentDataKey> {
     }
 }
 
-impl <TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKey> {
+impl<TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKey> {
     pub fn get_pool_or_create<TComponent: StaticComponentType>(
         &mut self,
     ) -> &mut SpecificPool<TComponentDataKey, TComponent> {
@@ -33,20 +37,23 @@ impl <TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataK
             .unwrap()
     }
 }
-impl <TComponentDataKey: PoolKey> ComponentPoolManager<TComponentDataKey> {
-
-    pub fn get_pool_mut(&mut self, component_type: ComponentType) -> Option<&mut dyn AbstractPool<TComponentDataKey>>
-    {
-        let option = self.by_type
-            .get_mut(&component_type);
+impl<TComponentDataKey: PoolKey> ComponentPoolManager<TComponentDataKey> {
+    pub fn get_pool_mut(
+        &mut self,
+        component_type: ComponentType,
+    ) -> Option<&mut dyn AbstractPool<TComponentDataKey>> {
+        let option = self.by_type.get_mut(&component_type);
         match option {
             Some(option) => Some(option.as_mut()),
             None => None,
         }
     }
 
-    pub fn get_pool(&self, component_type: ComponentType) -> Option<&dyn AbstractPool<TComponentDataKey>> {
-        self.by_type
+    pub fn get_pool(
+        &self,
+        component_type: ComponentType,
+    ) -> Option<&dyn AbstractPool<TComponentDataKey>> {
+        self.by_type //
             .get(&component_type)
             .map(|it| it.as_ref())
     }

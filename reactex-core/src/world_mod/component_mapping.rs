@@ -1,7 +1,7 @@
 use crate::component::ComponentType;
 use crate::entity::EntityIndex;
+use crate::world_mod::component_pool_manager::ComponentDataKey;
 use std::collections::HashMap;
-use crate::world_mod::component_pool_manager::{ComponentDataKey};
 
 #[derive(Default)]
 pub struct ComponentMappingStorage {

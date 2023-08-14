@@ -1,4 +1,5 @@
 pub(crate) mod component_mapping;
+pub mod component_pool_manager;
 pub mod configure;
 pub(crate) mod entity_component_index;
 pub(crate) mod entity_storage;
@@ -10,4 +11,3 @@ pub mod signal_sender;
 pub(crate) mod signal_storage;
 pub mod world;
 pub mod world_read;
-pub mod component_pool_manager;
