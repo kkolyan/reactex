@@ -1,7 +1,7 @@
 use crate::component::ComponentType;
 use crate::entity::EntityIndex;
-use crate::pools::PoolKey;
 use std::collections::HashMap;
+use crate::world_mod::component_pool_manager::{ComponentDataKey};
 
 #[derive(Default)]
 pub struct ComponentMappingStorage {
@@ -19,19 +19,5 @@ impl ComponentMappingStorage {
             .get(&component_type)
             .map(|it| it.contains_key(&entity))
             .unwrap_or(false)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ComponentDataKey {
-    pub index: usize,
-}
-
-impl PoolKey for ComponentDataKey {
-    fn as_usize(&self) -> usize {
-        self.index
-    }
-    fn from_usize(value: usize) -> Self {
-        ComponentDataKey { index: value }
     }
 }

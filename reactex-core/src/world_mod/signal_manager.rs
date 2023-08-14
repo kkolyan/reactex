@@ -73,7 +73,7 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
             .as_any_mut()
             .try_specialize::<T>()
             .unwrap()
-            .del(&signal.data_key)
+            .del_and_get(&signal.data_key)
             .unwrap();
 
         for handler in &mut self.global_handlers {

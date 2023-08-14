@@ -11,8 +11,7 @@ use crate::filter::filter_manager::InternalFilterKey;
 use crate::filter::filter_manager_iter::FilterIter;
 use crate::opt_tiny_vec::OptTinyVec;
 use crate::pools::AbstractPool;
-use crate::pools::SpecificPool;
-use crate::world_mod::component_mapping::ComponentDataKey;
+use crate::world_mod::component_pool_manager::{ComponentDataKey, TempComponentDataKey};
 use crate::world_mod::component_mapping::ComponentMappingStorage;
 use crate::world_mod::entity_component_index::EntityComponentIndex;
 use crate::world_mod::entity_storage::EntityStorage;
@@ -29,9 +28,11 @@ use crate::world_mod::signal_storage::SignalStorage;
 use crate::world_mod::world::ComponentNotFoundError::Data;
 use crate::world_mod::world::ComponentNotFoundError::Mapping;
 use justerror::Error;
-use std::any::TypeId;
+use std::any::{TypeId};
 use std::collections::HashMap;
 use std::mem;
+use crate::pool_pump::{AbstractPoolPump, SpecificPoolPump};
+use crate::world_mod::component_pool_manager::ComponentPoolManager;
 
 pub struct World {
     pub(crate) entity_storage: EntityStorage,
@@ -40,8 +41,8 @@ pub struct World {
     entities_to_commit: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
     pub(crate) components_to_delete: DeleteQueue,
     pub(crate) components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
-    pub(crate) component_data_pools:
-        HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
+    pub(crate) component_data: ComponentPoolManager<ComponentDataKey>,
+    pub(crate) component_data_uncommitted: ComponentPoolManager<TempComponentDataKey>,
     pub(crate) component_mappings: ComponentMappingStorage,
     current_cause: Cause,
     pub(crate) filter_manager: FilterManager,
@@ -51,6 +52,7 @@ pub struct World {
     pub(crate) signal_queue: SignalQueue,
     signal_storage: SignalStorage,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
+    component_data_pumps: HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
 }
 
 impl World {
@@ -98,7 +100,8 @@ impl World {
             entities_to_commit: Default::default(),
             components_to_delete: Default::default(),
             components_to_add: Default::default(),
-            component_data_pools: Default::default(),
+            component_data: Default::default(),
+            component_data_uncommitted: Default::default(),
             component_mappings: Default::default(),
             current_cause: Cause::initial(),
             filter_manager: Default::default(),
@@ -108,6 +111,7 @@ impl World {
             signal_queue: Default::default(),
             signal_storage: SignalStorage::new(),
             signal_managers: Default::default(),
+            component_data_pumps: Default::default(),
         };
         pipeline::configure_pipeline(&mut world);
         world
@@ -136,7 +140,7 @@ impl ComponentKey {
 }
 
 pub struct ComponentAdd {
-    data: ComponentDataKey,
+    data: TempComponentDataKey,
     cause: Cause,
 }
 
@@ -187,7 +191,8 @@ impl World {
             .get(&entity)
             .ok_or(ComponentError::NotFound(Mapping))?;
         let value = self
-            .get_component_data_mut()
+            .component_data
+            .get_pool_or_create()
             .get_mut(&data)
             .ok_or(ComponentError::NotFound(Data))?;
         change(value);
@@ -201,7 +206,15 @@ impl World {
     ) -> WorldResult {
         let entity = entity.validate(&self.entity_storage, AllowUncommitted)?;
 
-        let data = self.get_component_data_mut::<T>().add(component);
+        self.component_data_pumps
+            .entry(T::get_component_type())
+            .or_insert(Box::<SpecificPoolPump<TempComponentDataKey, ComponentDataKey, T>>::default());
+
+        self.component_data.get_pool_or_create::<T>();
+
+        let data = self.component_data_uncommitted
+            .get_pool_or_create::<T>()
+            .add(component);
 
         self.components_to_add
             .entry(ComponentKey::of::<T>(entity))
@@ -211,32 +224,22 @@ impl World {
                 cause: self.current_cause.clone(),
             });
 
-        self.entity_component_index
-            .add_component_type(entity.index, T::get_component_type());
         Ok(())
     }
 
     pub fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey) -> WorldResult {
         let entity = entity.validate(&self.entity_storage, DenyUncommitted)?;
 
-        let removed = self
+        let removed_uncommitted = self
             .components_to_add
-            .remove(&ComponentKey::of::<T>(entity));
-        match removed {
-            Some(removed_value) => {
-                for add in removed_value.iter() {
-                    self.get_component_data_mut::<T>().del(&add.data);
-                }
-                self.components_to_add
-                    .remove(&ComponentKey::of::<T>(entity));
-            }
-            None => {
-                self.components_to_delete
-                    .before_disappear
-                    .entry(ComponentKey::of::<T>(entity))
-                    .or_default()
-                    .push(self.current_cause.clone());
-            }
+            .remove(&ComponentKey::of::<T>(entity))
+            .is_some();
+        if !removed_uncommitted {
+            self.components_to_delete
+                .before_disappear
+                .entry(ComponentKey::of::<T>(entity))
+                .or_default()
+                .push(self.current_cause.clone());
         }
         Ok(())
     }
@@ -256,18 +259,8 @@ impl World {
     pub fn destroy_entity(&mut self, entity: EntityKey) -> WorldResult {
         let entity = entity.validate(&self.entity_storage, AllowUncommitted)?;
         if self.entity_storage.is_not_committed(entity.index) {
-            // destroy entity and attached components immediately, because they are non committed yet
-            for component_type in self
-                .entity_component_index
-                .get_component_types(entity.index)
-            {
-                Self::remove_component_immediate(
-                    &mut self.component_data_pools,
-                    &mut self.component_mappings,
-                    component_type,
-                    entity.index,
-                )
-            }
+            // component data is not deleted here, because it will be deleted at once later
+
             self.entities_to_commit.remove(&entity);
             self.entity_storage.delete_entity_data(entity.index);
         } else {
@@ -286,33 +279,6 @@ impl World {
     }
 }
 impl World {
-    fn remove_component_immediate(
-        component_data_pools: &mut HashMap<ComponentType, Box<dyn AbstractPool<ComponentDataKey>>>,
-        mappings: &mut ComponentMappingStorage,
-        component_type: ComponentType,
-        entity_index: EntityIndex,
-    ) {
-        let table: &mut HashMap<EntityIndex, ComponentDataKey> = mappings
-            .data_by_entity_by_type
-            .get_mut(&component_type)
-            .unwrap();
-        let data = table.remove(&entity_index).unwrap();
-        component_data_pools
-            .get_mut(&component_type)
-            .unwrap()
-            .del(&data);
-    }
-
-    fn get_component_data_mut<T: StaticComponentType>(
-        &mut self,
-    ) -> &mut SpecificPool<ComponentDataKey, T> {
-        self.component_data_pools
-            .entry(T::get_component_type())
-            .or_insert_with(|| Box::new(SpecificPool::<ComponentDataKey, T>::new()))
-            .as_any_mut()
-            .try_specialize::<T>()
-            .unwrap()
-    }
 
     fn get_component_mapping_mut(
         &mut self,
@@ -335,18 +301,21 @@ impl World {
     pub(crate) fn flush_component_addition(&mut self) {
         for (component_key, versions) in mem::take(&mut self.components_to_add) {
             let mut versions = versions.into_iter();
-            let ComponentAdd {
-                data: chosen_version,
-                cause: chosen_cause,
-            } = versions.next().unwrap();
-            let mut causes = OptTinyVec::single(chosen_cause);
-            for dropped_version in versions {
-                self.component_data_pools
-                    .get_mut(&component_key.component_type)
-                    .unwrap()
-                    .del(&dropped_version.data);
-                causes.push(dropped_version.cause);
-            }
+
+            let chosen_version = versions.next().unwrap();
+
+            let mut all_causes = OptTinyVec::single(chosen_version.cause);
+            all_causes.extend(versions.map(|it| it.cause));
+
+            let chosen_version = self.component_data_pumps
+                .get(&component_key.component_type)
+                .unwrap()
+                .do_move(
+                    self.component_data_uncommitted.get_pool_mut(component_key.component_type).unwrap(),
+                    self.component_data.get_pool_mut(component_key.component_type).unwrap(),
+                    &chosen_version.data
+                );
+
             let mapping = self
                 .get_component_mapping_mut(component_key.component_type)
                 .entry(component_key.entity.index)
@@ -356,14 +325,19 @@ impl World {
                 "attempt to mark committed as committed"
             );
 
+            self.entity_component_index
+                .add_component_type(component_key.entity.index, component_key.component_type);
+
             self.filter_manager.on_component_added(
                 &self.entity_component_index,
                 FilterComponentChange {
                     component_key,
-                    causes,
+                    causes: all_causes,
                 },
             );
         }
+        // deleting cancelled components (which entity or themselves was deleted at the same transaction)
+        self.component_data_uncommitted.clear();
     }
 
     pub(crate) fn invoke_disappear_handlers(&mut self) {
@@ -426,12 +400,17 @@ impl World {
 
     pub(crate) fn flush_component_removals(&mut self) {
         for (component_key, causes) in mem::take(&mut self.components_to_delete.after_disappear) {
-            Self::remove_component_immediate(
-                &mut self.component_data_pools,
-                &mut self.component_mappings,
-                component_key.component_type,
-                component_key.entity.index,
-            );
+            let data_key = self.component_mappings
+                .data_by_entity_by_type
+                .get_mut(&component_key.component_type)
+                .unwrap()
+                .remove(&component_key.entity.index);
+            if let Some(data_key) = data_key {
+                self.component_data
+                    .get_pool_mut(component_key.component_type)
+                    .unwrap()
+                    .del(&data_key);
+            }
 
             self.entity_component_index
                 .delete_component_type(component_key.entity.index, component_key.component_type);

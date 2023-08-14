@@ -10,11 +10,12 @@ pub struct SpecificPool<K, V> {
 
 pub trait AbstractPool<K> {
     fn del(&mut self, key: &K);
+    fn clear(&mut self);
     fn as_any_mut(&mut self) -> AnyPoolMut<K>;
     fn as_any(&self) -> AnyPool<K>;
 }
 
-pub trait PoolKey {
+pub trait PoolKey: 'static {
     fn as_usize(&self) -> usize;
     fn from_usize(value: usize) -> Self;
 }
@@ -76,7 +77,7 @@ impl<K: PoolKey, V> SpecificPool<K, V> {
         self.buffer.get(index).and_then(|it| it.as_ref())
     }
 
-    pub fn del(&mut self, key: &K) -> Option<V> {
+    fn del_internal(&mut self, key: &K) -> Option<V> {
         let index = key.as_usize();
         if index < self.buffer.len() {
             if index == self.buffer.len() - 1 {
@@ -93,11 +94,24 @@ impl<K: PoolKey, V> SpecificPool<K, V> {
             panic!("attempt to delete entry outside of the bounds")
         }
     }
+
+    pub(crate) fn del_and_get(&mut self, key: &K) -> Option<V> {
+        self.del_internal(key)
+    }
+
+    fn clear_internal(&mut self) {
+        self.holes.clear();
+        self.buffer.clear();
+    }
 }
 
 impl<K: PoolKey + 'static, V: 'static> AbstractPool<K> for SpecificPool<K, V> {
     fn del(&mut self, key: &K) {
-        SpecificPool::del(self, key);
+        self.del_internal(key);
+    }
+
+    fn clear(&mut self) {
+        self.clear_internal();
     }
 
     fn as_any_mut(&mut self) -> AnyPoolMut<K> {

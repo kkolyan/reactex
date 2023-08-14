@@ -13,6 +13,7 @@ macro_rules! step_simple_b {
     };
 }
 
+#[rustfmt::skip]
 pub fn configure_pipeline(world: &mut World) {
     let mut invoke_signal_handler = 0;
     let mut schedule_destroyed_entities_component_removal = 0;
@@ -24,15 +25,11 @@ pub fn configure_pipeline(world: &mut World) {
     step_simple_a!(world, generate_disappear_events);
     step_simple_b!(world, invoke_disappear_handlers);
     step_simple_b!(world, flush_component_removals);
-    add_goto(
-        world,
-        "check_destroyed_entities_early",
+    add_goto(world, "check_destroyed_entities_early",
         |world| !world.entities_to_destroy.is_empty(),
         schedule_destroyed_entities_component_removal,
     );
-    add_goto(
-        world,
-        "check_removed_components_early",
+    add_goto( world, "check_removed_components_early",
         |world| !world.components_to_delete.before_disappear.is_empty(),
         generate_disappear_events,
     );
@@ -40,27 +37,19 @@ pub fn configure_pipeline(world: &mut World) {
     step_simple_b!(world, flush_entity_create_actions);
     step_simple_a!(world, flush_component_addition);
     step_simple_b!(world, invoke_appear_handlers);
-    add_goto(
-        world,
-        "check_destroyed_entities_late",
+    add_goto(world, "check_destroyed_entities_late",
         |world| !world.entities_to_destroy.is_empty(),
         schedule_destroyed_entities_component_removal,
     );
-    add_goto(
-        world,
-        "check_removed_components_late",
+    add_goto(world,"check_removed_components_late",
         |world| !world.components_to_delete.before_disappear.is_empty(),
         generate_disappear_events,
     );
-    add_goto(
-        world,
-        "check_added_components",
+    add_goto(world, "check_added_components",
         |world| !world.components_to_add.is_empty(),
         flush_component_addition,
     );
-    add_goto(
-        world,
-        "check_signals",
+    add_goto( world, "check_signals",
         |world| !world.signal_queue.signals.is_empty(),
         invoke_signal_handler,
     );
