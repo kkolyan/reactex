@@ -36,6 +36,7 @@ pub fn configure_pipeline(world: &mut World) {
     step_simple_b!(world, flush_entity_destroy_actions);
     step_simple_b!(world, flush_entity_create_actions);
     step_simple_a!(world, flush_component_addition);
+    step_simple_b!(world, flush_component_modification);
     step_simple_b!(world, invoke_appear_handlers);
     add_goto(world, "check_destroyed_entities_late",
         |world| !world.entities_to_destroy.is_empty(),

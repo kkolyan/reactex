@@ -11,6 +11,7 @@ pub struct SpecificPool<K, V> {
 pub trait AbstractPool<K> {
     fn del(&mut self, key: &K);
     fn clear(&mut self);
+    fn get_mut_any(&mut self, key: &K) -> Option<&mut dyn Any>;
     fn as_any_mut(&mut self) -> AnyPoolMut<K>;
     fn as_any(&self) -> AnyPool<K>;
 }
@@ -112,6 +113,10 @@ impl<K: PoolKey + 'static, V: 'static> AbstractPool<K> for SpecificPool<K, V> {
 
     fn clear(&mut self) {
         self.clear_internal();
+    }
+
+    fn get_mut_any(&mut self, key: &K) -> Option<&mut dyn Any> {
+        self.get_mut(key).map(|it| it as &mut dyn Any)
     }
 
     fn as_any_mut(&mut self) -> AnyPoolMut<K> {

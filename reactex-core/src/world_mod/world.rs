@@ -32,7 +32,7 @@ use crate::world_mod::signal_storage::SignalStorage;
 use crate::world_mod::world::ComponentNotFoundError::Data;
 use crate::world_mod::world::ComponentNotFoundError::Mapping;
 use justerror::Error;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::mem;
 
@@ -43,6 +43,7 @@ pub struct World {
     entities_to_commit: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
     pub(crate) components_to_delete: DeleteQueue,
     pub(crate) components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
+    pub(crate) components_to_modify: HashMap<ComponentKey, OptTinyVec<ComponentModify>>,
     pub(crate) component_data: ComponentPoolManager<ComponentDataKey>,
     pub(crate) component_data_uncommitted: ComponentPoolManager<TempComponentDataKey>,
     pub(crate) component_mappings: ComponentMappingStorage,
@@ -103,6 +104,7 @@ impl World {
             entities_to_commit: Default::default(),
             components_to_delete: Default::default(),
             components_to_add: Default::default(),
+            components_to_modify: Default::default(),
             component_data: Default::default(),
             component_data_uncommitted: Default::default(),
             component_mappings: Default::default(),
@@ -147,6 +149,11 @@ pub struct ComponentAdd {
     cause: Cause,
 }
 
+pub struct ComponentModify {
+    callback: Box<dyn FnOnce(&mut dyn Any)>,
+    cause: Cause,
+}
+
 pub struct EventHandler {
     pub(crate) name: &'static str,
     pub(crate) callback: Box<dyn Fn(EntityKey)>,
@@ -184,21 +191,21 @@ impl World {
     pub fn modify_component<T: StaticComponentType>(
         &mut self,
         entity: EntityKey,
-        change: impl FnOnce(&mut T),
+        change: impl FnOnce(&mut T) + 'static,
     ) -> WorldResult {
         let entity = entity
-            .validate(&self.entity_storage, DenyUncommitted)?
-            .index;
-        let data = *self
-            .get_component_mapping_mut(T::get_component_type())
-            .get(&entity)
-            .ok_or(ComponentError::NotFound(Mapping))?;
-        let value = self
-            .component_data
-            .get_pool_or_create()
-            .get_mut(&data)
-            .ok_or(ComponentError::NotFound(Data))?;
-        change(value);
+            .validate(&self.entity_storage, DenyUncommitted)?;
+
+        self.components_to_modify
+            .entry(ComponentKey::of::<T>(entity))
+            .or_default()
+            .push(ComponentModify {
+                callback: Box::new(move |state| {
+                    let state: &mut T = state.downcast_mut().unwrap();
+                    change(state);
+                }),
+                cause: self.current_cause.clone(),
+            });
         Ok(())
     }
 
@@ -300,6 +307,29 @@ impl World {
         for (task, causes) in mem::take(&mut self.entities_to_commit) {
             self.entity_storage.mark_committed(task.index);
             self.filter_manager.on_entity_created(task, causes);
+        }
+    }
+
+    pub(crate) fn flush_component_modification(&mut self) {
+        for (component_key, modifications) in mem::take(&mut self.components_to_modify) {
+
+            let data = self
+                .get_component_mapping_mut(component_key.component_type)
+                .get(&component_key.entity.index);
+            let Some(&data) = data else {
+                continue
+            };
+            let value = self
+                .component_data
+                .get_pool_mut(component_key.component_type)
+                .unwrap()
+                .get_mut_any(&data);
+            let Some(value) = value else {
+                continue
+            };
+            for modification in modifications {
+                (modification.callback)(value);
+            }
         }
     }
 

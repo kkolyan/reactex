@@ -12,6 +12,12 @@ struct A {
     value: i32,
 }
 
+#[derive(Default, Debug, EcsComponent)]
+struct W {
+    a: i32,
+    b: i32,
+}
+
 #[derive(Debug, EcsComponent)]
 struct X {
     value: i32,
@@ -127,7 +133,21 @@ fn component_state_available_after_commit() {
 }
 
 #[test]
-fn component_state_change_visible_between_reads() {
+fn component_state_change_not_visible_before_commit() {
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A {value: 17}).unwrap();
+    world.execute_all();
+
+    world
+        .modify_component::<A>(entity, |it| it.value = 42)
+        .unwrap();
+
+    assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 17);
+}
+
+#[test]
+fn component_state_change_visible_after_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
     world.add_component(entity, A::default()).unwrap();
@@ -136,8 +156,29 @@ fn component_state_change_visible_between_reads() {
     world
         .modify_component::<A>(entity, |it| it.value = 42)
         .unwrap();
+    world.execute_all();
 
     assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 42);
+}
+
+#[test]
+fn component_state_changes_merged() {
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, W { a: 17, b: 42 }).unwrap();
+    world.execute_all();
+
+    world
+        .modify_component::<W>(entity, |it| it.a += 1)
+        .unwrap();
+    world
+        .modify_component::<W>(entity, |it| it.b += 3)
+        .unwrap();
+    world.execute_all();
+
+    let x = world.get_component::<W>(entity).unwrap().unwrap();
+
+    assert_eq!((x.a, x.b), (18, 45));
 }
 
 #[test]
