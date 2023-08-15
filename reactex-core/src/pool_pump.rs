@@ -33,12 +33,12 @@ impl<TKeySrc: PoolKey, TKeyDst: PoolKey, TValue: 'static> AbstractPoolPump<TKeyS
         key: &TKeySrc,
     ) -> TKeyDst {
         let value = src
-            .as_any_mut()
+            .specializable_mut()
             .try_specialize::<TValue>()
             .unwrap()
             .del_and_get(key)
             .unwrap();
-        dst.as_any_mut()
+        dst.specializable_mut()
             .try_specialize::<TValue>()
             .unwrap()
             .add(value)

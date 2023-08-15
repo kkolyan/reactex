@@ -32,7 +32,7 @@ impl<TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKe
         self.by_type
             .entry(TComponent::get_component_type())
             .or_insert_with(|| Box::new(SpecificPool::<TComponentDataKey, TComponent>::new()))
-            .as_any_mut()
+            .specializable_mut()
             .try_specialize::<TComponent>()
             .unwrap()
     }

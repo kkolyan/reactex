@@ -11,9 +11,10 @@ pub struct SpecificPool<K, V> {
 pub trait AbstractPool<K> {
     fn del(&mut self, key: &K);
     fn clear(&mut self);
-    fn get_mut_any(&mut self, key: &K) -> Option<&mut dyn Any>;
-    fn as_any_mut(&mut self) -> AnyPoolMut<K>;
-    fn as_any(&self) -> AnyPool<K>;
+    fn get_any_mut(&mut self, key: &K) -> Option<&mut dyn Any>;
+
+    fn specializable_mut(&mut self) -> SpecializablePoolMut<K>;
+    fn specializable(&self) -> SpecializablePool<K>;
 }
 
 pub trait PoolKey: 'static {
@@ -21,23 +22,23 @@ pub trait PoolKey: 'static {
     fn from_usize(value: usize) -> Self;
 }
 
-pub struct AnyPoolMut<'a, K> {
+pub struct SpecializablePoolMut<'a, K> {
     pd: PhantomData<K>,
     any: &'a mut dyn Any,
 }
 
-pub struct AnyPool<'a, K> {
+pub struct SpecializablePool<'a, K> {
     pd: PhantomData<K>,
     any: &'a dyn Any,
 }
 
-impl<'a, K: 'static> AnyPoolMut<'a, K> {
+impl<'a, K: 'static> SpecializablePoolMut<'a, K> {
     pub fn try_specialize<T: 'static>(self) -> Option<&'a mut SpecificPool<K, T>> {
         self.any.downcast_mut::<SpecificPool<K, T>>()
     }
 }
 
-impl<'a, K: 'static> AnyPool<'a, K> {
+impl<'a, K: 'static> SpecializablePool<'a, K> {
     pub fn try_specialize<T: 'static>(self) -> Option<&'a SpecificPool<K, T>> {
         self.any.downcast_ref::<SpecificPool<K, T>>()
     }
@@ -115,19 +116,19 @@ impl<K: PoolKey + 'static, V: 'static> AbstractPool<K> for SpecificPool<K, V> {
         self.clear_internal();
     }
 
-    fn get_mut_any(&mut self, key: &K) -> Option<&mut dyn Any> {
+    fn get_any_mut(&mut self, key: &K) -> Option<&mut dyn Any> {
         self.get_mut(key).map(|it| it as &mut dyn Any)
     }
 
-    fn as_any_mut(&mut self) -> AnyPoolMut<K> {
-        AnyPoolMut {
+    fn specializable_mut(&mut self) -> SpecializablePoolMut<K> {
+        SpecializablePoolMut {
             pd: Default::default(),
             any: self,
         }
     }
 
-    fn as_any(&self) -> AnyPool<K> {
-        AnyPool {
+    fn specializable(&self) -> SpecializablePool<K> {
+        SpecializablePool {
             pd: Default::default(),
             any: self,
         }
@@ -152,7 +153,7 @@ mod tests {
     fn downcast_works() {
         let mut ints: Box<dyn AbstractPool<usize>> = Box::from(SpecificPool::<usize, i32>::new());
         let mut bools: Box<dyn AbstractPool<usize>> = Box::from(SpecificPool::<usize, bool>::new());
-        assert!(ints.as_any_mut().try_specialize::<i32>().is_some());
-        assert!(bools.as_any_mut().try_specialize::<i32>().is_none())
+        assert!(ints.specializable_mut().try_specialize::<i32>().is_some());
+        assert!(bools.specializable_mut().try_specialize::<i32>().is_none())
     }
 }

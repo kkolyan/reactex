@@ -70,7 +70,7 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
             .payloads
             .get_mut(&signal.payload_type)
             .unwrap()
-            .as_any_mut()
+            .specializable_mut()
             .try_specialize::<T>()
             .unwrap()
             .del_and_get(&signal.data_key)

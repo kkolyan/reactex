@@ -52,7 +52,7 @@ impl World {
     ) -> Option<&SpecificPool<ComponentDataKey, T>> {
         self.component_data
             .get_pool(T::get_component_type())?
-            .as_any()
+            .specializable()
             .try_specialize::<T>()
     }
 }

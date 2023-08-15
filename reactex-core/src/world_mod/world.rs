@@ -323,7 +323,7 @@ impl World {
                 .component_data
                 .get_pool_mut(component_key.component_type)
                 .unwrap()
-                .get_mut_any(&data);
+                .get_any_mut(&data);
             let Some(value) = value else {
                 continue
             };

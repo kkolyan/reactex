@@ -19,7 +19,7 @@ impl<'a> SignalSender<'a> {
             .payloads
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()))
-            .as_any_mut()
+            .specializable_mut()
             .try_specialize::<T>()
             .unwrap()
             .add(payload);
