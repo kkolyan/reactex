@@ -29,10 +29,9 @@ use crate::world_mod::signal_queue::SignalQueue;
 use crate::world_mod::signal_sender::SignalSender;
 use crate::world_mod::signal_storage::SignalDataKey;
 use crate::world_mod::signal_storage::SignalStorage;
-use crate::world_mod::world::ComponentNotFoundError::Data;
-use crate::world_mod::world::ComponentNotFoundError::Mapping;
 use justerror::Error;
-use std::any::{Any, TypeId};
+use std::any::Any;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::mem;
 
@@ -193,8 +192,7 @@ impl World {
         entity: EntityKey,
         change: impl FnOnce(&mut T) + 'static,
     ) -> WorldResult {
-        let entity = entity
-            .validate(&self.entity_storage, DenyUncommitted)?;
+        let entity = entity.validate(&self.entity_storage, DenyUncommitted)?;
 
         self.components_to_modify
             .entry(ComponentKey::of::<T>(entity))
@@ -312,21 +310,16 @@ impl World {
 
     pub(crate) fn flush_component_modification(&mut self) {
         for (component_key, modifications) in mem::take(&mut self.components_to_modify) {
-
             let data = self
                 .get_component_mapping_mut(component_key.component_type)
                 .get(&component_key.entity.index);
-            let Some(&data) = data else {
-                continue
-            };
+            let Some(&data) = data else { continue };
             let value = self
                 .component_data
                 .get_pool_mut(component_key.component_type)
                 .unwrap()
                 .get_any_mut(&data);
-            let Some(value) = value else {
-                continue
-            };
+            let Some(value) = value else { continue };
             for modification in modifications {
                 (modification.callback)(value);
             }
