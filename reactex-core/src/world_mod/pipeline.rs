@@ -1,5 +1,6 @@
 use crate::world_mod::execution::Step;
 use crate::world_mod::execution::StepImpl;
+use crate::world_mod::world::VolatileWorld;
 use crate::world_mod::world::World;
 
 macro_rules! step_simple_a {
@@ -20,7 +21,7 @@ pub fn configure_pipeline(world: &mut World) {
     let mut generate_disappear_events = 0;
     let mut flush_component_addition = 0;
 
-    step_simple_a!(world, invoke_signal_handler);
+    add_step_simple(world, stringify!( invoke_signal_handler ), World::invoke_signal_handler, &mut invoke_signal_handler);
     step_simple_a!(world, schedule_destroyed_entities_component_removal);
     step_simple_a!(world, generate_disappear_events);
     step_simple_b!(world, invoke_disappear_handlers);
@@ -57,8 +58,8 @@ pub fn configure_pipeline(world: &mut World) {
 }
 
 fn add_step_simple(world: &mut World, name: &str, callback: fn(&mut World), index: &mut usize) {
-    *index = world.sequence.len();
-    world.sequence.push(Step {
+    *index = world.stable.sequence.len();
+    world.stable.sequence.push(Step {
         name: name.to_string(),
         callback: StepImpl::Fn(callback),
     })
@@ -67,10 +68,10 @@ fn add_step_simple(world: &mut World, name: &str, callback: fn(&mut World), inde
 fn add_goto(
     world: &mut World,
     name: &str,
-    condition: fn(&World) -> bool,
+    condition: fn(&VolatileWorld) -> bool,
     destination_index: usize,
 ) {
-    world.sequence.push(Step {
+    world.stable.sequence.push(Step {
         name: name.to_string(),
         callback: StepImpl::Goto {
             condition,

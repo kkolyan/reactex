@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_core::world_mod::world::World;
+use reactex_core::world_mod::world::{VolatileWorld, World};
 use reactex_macro::EcsComponent;
 use std::cell::RefCell;
 use std::ops::Deref;

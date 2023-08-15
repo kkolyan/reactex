@@ -4,6 +4,7 @@ use crate::pools::AbstractPool;
 use crate::pools::PoolKey;
 use crate::pools::SpecificPool;
 use std::collections::HashMap;
+use log::info;
 
 pub(crate) struct ComponentPoolManager<TComponentDataKey> {
     by_type: HashMap<ComponentType, Box<dyn AbstractPool<TComponentDataKey>>>,
@@ -26,26 +27,27 @@ impl ComponentPoolManager<TempComponentDataKey> {
 }
 
 impl<TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKey> {
-    pub fn get_pool_or_create<TComponent: StaticComponentType>(
+    pub fn init_pool<TComponent: StaticComponentType>(
         &mut self,
-    ) -> &mut SpecificPool<TComponentDataKey, TComponent> {
-        self.by_type
-            .entry(TComponent::get_component_type())
-            .or_insert_with(|| Box::new(SpecificPool::<TComponentDataKey, TComponent>::new()))
-            .specializable_mut()
-            .try_specialize::<TComponent>()
-            .unwrap()
+        name: &str,
+    ) {
+        info!("initialize pool {:?} with {}", name, TComponent::NAME);
+        assert!(self.by_type.get(&TComponent::get_component_type()).is_none(), "attempt to init the same pool twice: {}", TComponent::NAME);
+        self.by_type.insert(
+            TComponent::get_component_type(),
+            Box::new(SpecificPool::<TComponentDataKey, TComponent>::new())
+        );
     }
 }
+
 impl<TComponentDataKey: PoolKey> ComponentPoolManager<TComponentDataKey> {
     pub fn get_pool_mut(
         &mut self,
         component_type: ComponentType,
-    ) -> Option<&mut dyn AbstractPool<TComponentDataKey>> {
-        let option = self.by_type.get_mut(&component_type);
-        match option {
-            Some(option) => Some(option.as_mut()),
-            None => None,
+    ) -> &mut dyn AbstractPool<TComponentDataKey> {
+        match self.by_type.get_mut(&component_type) {
+            Some(option) => option.as_mut(),
+            None => panic!("framework BUG: pool not initialized"),
         }
     }
 

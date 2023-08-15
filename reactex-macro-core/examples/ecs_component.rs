@@ -11,7 +11,7 @@ fn main() {
     ",
     )
     .unwrap();
-    let result = reactex_macro_core::derive_ecs_component(
+    let result = reactex_macro_core::components::derive_ecs_component(
         item,
         "source/file.rs",
         ".derive_ecs_component.examples.txt",

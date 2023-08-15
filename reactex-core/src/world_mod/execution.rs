@@ -1,4 +1,4 @@
-use crate::world_mod::world::World;
+use crate::world_mod::world::{VolatileWorld, World};
 use log::trace;
 
 pub struct Step {
@@ -9,7 +9,7 @@ pub struct Step {
 pub enum StepImpl {
     Fn(fn(&mut World)),
     Goto {
-        condition: fn(&World) -> bool,
+        condition: fn(&VolatileWorld) -> bool,
         destination_index: usize,
     },
 }
@@ -19,14 +19,14 @@ pub struct ExecutionContext {
 }
 
 trait StepAction {
-    fn execute(world: &mut World, ctx: &mut ExecutionContext);
+    fn execute(world: &mut VolatileWorld, ctx: &mut ExecutionContext);
     fn get_name() -> &'static str;
 }
 
 struct InvokeSignalHandler;
 
 impl StepAction for InvokeSignalHandler {
-    fn execute(_world: &mut World, _ctx: &mut ExecutionContext) {}
+    fn execute(_world: &mut VolatileWorld, _ctx: &mut ExecutionContext) {}
 
     fn get_name() -> &'static str {
         "InvokeSignalHandler"
@@ -37,8 +37,8 @@ impl World {
     pub fn execute_all(&mut self) {
         trace!("execute_all");
         let mut ctx = ExecutionContext { cursor: 0 };
-        while ctx.cursor < self.sequence.len() {
-            let step = &self.sequence[ctx.cursor];
+        while ctx.cursor < self.stable.sequence.len() {
+            let step = &self.stable.sequence[ctx.cursor];
             trace!("executing step: {}", step.name);
             ctx.cursor += 1;
             match step.callback {
@@ -49,7 +49,7 @@ impl World {
                     condition,
                     destination_index,
                 } => {
-                    if condition(self) {
+                    if condition(&mut self.volatile) {
                         ctx.cursor = destination_index;
                     }
                 }
