@@ -4,10 +4,10 @@
 use proc_macro2::TokenStream;
 
 pub mod common;
+pub mod components;
 pub mod lab_helper;
 pub mod on_signal;
 pub mod query;
-pub mod components;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

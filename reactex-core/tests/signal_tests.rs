@@ -1,13 +1,14 @@
 #![allow(non_snake_case)]
 
 use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_core::world_mod::world::{VolatileWorld, World};
+use reactex_core::world_mod::configure::ConfigurableWorld;
+use reactex_core::world_mod::world::VolatileWorld;
+use reactex_core::world_mod::world::World;
 use reactex_macro::EcsComponent;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
-use reactex_core::world_mod::configure::ConfigurableWorld;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}

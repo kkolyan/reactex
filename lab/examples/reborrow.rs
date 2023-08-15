@@ -1,9 +1,5 @@
 fn main() {
-    let mut a = A {
-        x: 1,
-        y: 2,
-        z: 3,
-    };
+    let mut a = A { x: 1, y: 2, z: 3 };
     dodo(&mut a);
     assert_eq!("1,5,10", format!("{},{},{}", a.x, a.y, a.z))
 }

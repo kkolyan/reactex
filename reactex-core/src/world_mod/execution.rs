@@ -1,4 +1,5 @@
-use crate::world_mod::world::{VolatileWorld, World};
+use crate::world_mod::world::VolatileWorld;
+use crate::world_mod::world::World;
 use log::trace;
 
 pub struct Step {

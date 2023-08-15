@@ -3,8 +3,8 @@ use crate::component::StaticComponentType;
 use crate::pools::AbstractPool;
 use crate::pools::PoolKey;
 use crate::pools::SpecificPool;
-use std::collections::HashMap;
 use log::info;
+use std::collections::HashMap;
 
 pub(crate) struct ComponentPoolManager<TComponentDataKey> {
     by_type: HashMap<ComponentType, Box<dyn AbstractPool<TComponentDataKey>>>,
@@ -27,15 +27,18 @@ impl ComponentPoolManager<TempComponentDataKey> {
 }
 
 impl<TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKey> {
-    pub fn init_pool<TComponent: StaticComponentType>(
-        &mut self,
-        name: &str,
-    ) {
+    pub fn init_pool<TComponent: StaticComponentType>(&mut self, name: &str) {
         info!("initialize pool {:?} with {}", name, TComponent::NAME);
-        assert!(self.by_type.get(&TComponent::get_component_type()).is_none(), "attempt to init the same pool twice: {}", TComponent::NAME);
+        assert!(
+            self.by_type
+                .get(&TComponent::get_component_type())
+                .is_none(),
+            "attempt to init the same pool twice: {}",
+            TComponent::NAME
+        );
         self.by_type.insert(
             TComponent::get_component_type(),
-            Box::new(SpecificPool::<TComponentDataKey, TComponent>::new())
+            Box::new(SpecificPool::<TComponentDataKey, TComponent>::new()),
         );
     }
 }

@@ -3,8 +3,9 @@ use std::fmt::Debug;
 use ctor::ctor;
 use reactex_core::world_mod::configure::ConfigurableWorld;
 
-use reactex_core::world_mod::world::{EntityError, World};
+use reactex_core::world_mod::world::EntityError;
 use reactex_core::world_mod::world::VolatileWorld;
+use reactex_core::world_mod::world::World;
 use reactex_core::world_mod::world::WorldError;
 use reactex_macro::EcsComponent;
 

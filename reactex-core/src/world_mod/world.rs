@@ -50,10 +50,12 @@ pub struct VolatileWorld {
     signal_storage: SignalStorage,
 }
 
-
 static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
 pub fn register_type(registration: fn(&mut World)) {
-    COMPONENT_TYPE_REGISTRATIONS.lock().unwrap().push(registration);
+    COMPONENT_TYPE_REGISTRATIONS
+        .lock()
+        .unwrap()
+        .push(registration);
 }
 
 pub struct World {
@@ -78,7 +80,9 @@ impl World {
 
     pub fn register_component<T: StaticComponentType>(&mut self) {
         self.stable.component_data.init_pool::<T>("live components");
-        self.volatile.component_data_uncommitted.init_pool::<T>("temporary values");
+        self.volatile
+            .component_data_uncommitted
+            .init_pool::<T>("temporary values");
 
         self.stable
             .component_data_pumps
@@ -98,10 +102,8 @@ pub struct StableWorld {
     pub(crate) on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     pub(crate) on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     pub(crate) sequence: Vec<Step>,
-    component_data_pumps: HashMap<
-        ComponentType,
-        Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>
-    >,
+    component_data_pumps:
+        HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
 }
 
 impl StableWorld {
@@ -148,7 +150,10 @@ impl StableWorld {
             .filter_manager
             .borrow_mut()
             .get_filter(filter)
-            .track_matched_entities(self.entity_storage.borrow().deref(), &self.component_mappings)
+            .track_matched_entities(
+                self.entity_storage.borrow().deref(),
+                &self.component_mappings,
+            )
             .iter()
         {
             callback(matched_entity.export());
@@ -287,7 +292,11 @@ impl VolatileWorld {
         Ok(())
     }
 
-    pub(crate) fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey, entity_storage: &EntityStorage) -> WorldResult {
+    pub(crate) fn remove_component<T: StaticComponentType>(
+        &mut self,
+        entity: EntityKey,
+        entity_storage: &EntityStorage,
+    ) -> WorldResult {
         let entity = entity.validate(entity_storage, DenyUncommitted)?;
 
         let removed_uncommitted = self
@@ -316,7 +325,11 @@ impl VolatileWorld {
         entity.export()
     }
 
-    pub(crate) fn destroy_entity(&mut self, entity: EntityKey, entity_storage: &mut EntityStorage) -> WorldResult {
+    pub(crate) fn destroy_entity(
+        &mut self,
+        entity: EntityKey,
+        entity_storage: &mut EntityStorage,
+    ) -> WorldResult {
         let entity = entity.validate(entity_storage, AllowUncommitted)?;
         if entity_storage.is_not_committed(entity.index) {
             // component data is not deleted here, because it will be deleted at once later
@@ -346,8 +359,14 @@ impl StableWorld {
 impl World {
     pub(crate) fn flush_entity_create_actions(&mut self) {
         for (task, causes) in mem::take(&mut self.volatile.entities_to_commit) {
-            self.stable.entity_storage.get_mut().mark_committed(task.index);
-            self.stable.filter_manager.get_mut().on_entity_created(task, causes);
+            self.stable
+                .entity_storage
+                .get_mut()
+                .mark_committed(task.index);
+            self.stable
+                .filter_manager
+                .get_mut()
+                .on_entity_created(task, causes);
         }
     }
 
@@ -385,12 +404,10 @@ impl World {
                 .get(&component_key.component_type)
                 .unwrap()
                 .do_move(
-                    self
-                        .volatile
+                    self.volatile
                         .component_data_uncommitted
                         .get_pool_mut(component_key.component_type),
-                    self
-                        .stable
+                    self.stable
                         .component_data
                         .get_pool_mut(component_key.component_type),
                     &chosen_version.data,
@@ -406,8 +423,7 @@ impl World {
                 "attempt to mark committed as committed"
             );
 
-            self
-                .volatile
+            self.volatile
                 .entity_component_index
                 .add_component_type(component_key.entity.index, component_key.component_type);
 
@@ -425,7 +441,10 @@ impl World {
 
     pub(crate) fn invoke_disappear_handlers(&mut self) {
         invoke_handlers(
-            self.stable.filter_manager.get_mut().take_with_new_disappear_events(),
+            self.stable
+                .filter_manager
+                .get_mut()
+                .take_with_new_disappear_events(),
             &mut self.stable.on_disappear,
             &mut self.volatile.current_cause,
             ComponentEventType::Disappear,
@@ -434,7 +453,10 @@ impl World {
 
     pub(crate) fn invoke_appear_handlers(&mut self) {
         invoke_handlers(
-            self.stable.filter_manager.get_mut().take_with_new_appear_events(),
+            self.stable
+                .filter_manager
+                .get_mut()
+                .take_with_new_appear_events(),
             &mut self.stable.on_appear,
             &mut self.volatile.current_cause,
             ComponentEventType::Appear,
@@ -476,13 +498,21 @@ fn invoke_handlers(
 impl World {
     pub(crate) fn flush_entity_destroy_actions(&mut self) {
         for (entity, causes) in mem::take(&mut self.volatile.entities_to_destroy) {
-            self.stable.entity_storage.get_mut().delete_entity_data(entity.index);
-            self.stable.filter_manager.get_mut().on_entity_destroyed(entity, causes);
+            self.stable
+                .entity_storage
+                .get_mut()
+                .delete_entity_data(entity.index);
+            self.stable
+                .filter_manager
+                .get_mut()
+                .on_entity_destroyed(entity, causes);
         }
     }
 
     pub(crate) fn flush_component_removals(&mut self) {
-        for (component_key, causes) in mem::take(&mut self.volatile.components_to_delete.after_disappear) {
+        for (component_key, causes) in
+            mem::take(&mut self.volatile.components_to_delete.after_disappear)
+        {
             let data_key = self
                 .stable
                 .component_mappings
@@ -497,9 +527,11 @@ impl World {
                     .del(&data_key);
             }
 
-            self.volatile.entity_component_index
+            self.volatile
+                .entity_component_index
                 .delete_component_type(component_key.entity.index, component_key.component_type);
-            self.stable.filter_manager
+            self.stable
+                .filter_manager
                 .get_mut()
                 .on_component_removed(FilterComponentChange {
                     component_key,
@@ -509,7 +541,9 @@ impl World {
     }
 
     pub(crate) fn generate_disappear_events(&mut self) {
-        for (component_key, causes) in mem::take(&mut self.volatile.components_to_delete.before_disappear) {
+        for (component_key, causes) in
+            mem::take(&mut self.volatile.components_to_delete.before_disappear)
+        {
             self.stable
                 .filter_manager
                 .get_mut()
@@ -518,7 +552,8 @@ impl World {
                     // TODO consider avoid cloning
                     causes: causes.clone(),
                 });
-            self.volatile.components_to_delete
+            self.volatile
+                .components_to_delete
                 .after_disappear
                 .insert(component_key, causes);
         }
@@ -549,7 +584,11 @@ impl World {
 
     pub(crate) fn invoke_signal_handler(&mut self) {
         if let Some(signal) = self.volatile.signal_queue.signals.pop_front() {
-            let manager = self.stable.signal_managers.get_mut(&signal.payload_type).unwrap();
+            let manager = self
+                .stable
+                .signal_managers
+                .get_mut(&signal.payload_type)
+                .unwrap();
             manager.invoke(
                 signal,
                 &mut self.volatile.current_cause,

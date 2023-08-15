@@ -1,13 +1,14 @@
-use std::ops::Deref;
 use crate::component::StaticComponentType;
-use crate::entity::{EntityIndex};
+use crate::entity::EntityIndex;
 use crate::entity::EntityKey;
 use crate::pools::SpecificPool;
 use crate::world_mod::component_pool_manager::ComponentDataKey;
-use crate::world_mod::entity_storage::ValidateUncommitted::{AllowUncommitted, DenyUncommitted};
-use crate::world_mod::world::{StableWorld};
+use crate::world_mod::entity_storage::ValidateUncommitted::AllowUncommitted;
+use crate::world_mod::entity_storage::ValidateUncommitted::DenyUncommitted;
+use crate::world_mod::world::StableWorld;
 use crate::world_mod::world::WorldResult;
 use log::trace;
+use std::ops::Deref;
 
 impl StableWorld {
     pub fn get_component<T: StaticComponentType>(

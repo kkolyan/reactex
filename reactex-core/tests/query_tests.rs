@@ -2,7 +2,8 @@
 
 use reactex_core::filter::filter_desc::ecs_filter;
 use reactex_core::world_mod::configure::ConfigurableWorld;
-use reactex_core::world_mod::world::{VolatileWorld, World};
+use reactex_core::world_mod::world::VolatileWorld;
+use reactex_core::world_mod::world::World;
 use reactex_macro::EcsComponent;
 
 #[derive(EcsComponent, Debug, Default)]

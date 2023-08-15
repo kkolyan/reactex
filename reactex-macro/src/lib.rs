@@ -67,7 +67,8 @@ pub fn derive_ecs_component(item: TokenStream) -> TokenStream {
         Ok(it) => it,
         Err(it) => it,
     };
-    reactex_macro_core::components::derive_ecs_component(item.into(), module_path.as_str(), file).into()
+    reactex_macro_core::components::derive_ecs_component(item.into(), module_path.as_str(), file)
+        .into()
 }
 
 fn resolve_module_path() -> Result<String, String> {

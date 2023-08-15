@@ -1,7 +1,8 @@
 use crate::component::StaticComponentType;
 use crate::entity::EntityKey;
 use crate::filter::filter_desc::FilterDesc;
-use crate::world_mod::world::{World, WorldResult};
+use crate::world_mod::world::World;
+use crate::world_mod::world::WorldResult;
 
 impl World {
     pub fn modify_component<T: StaticComponentType>(
@@ -10,7 +11,8 @@ impl World {
         change: impl FnOnce(&mut T) + 'static,
     ) -> WorldResult {
         let entity_storage = self.stable.entity_storage.get_mut();
-        self.volatile.modify_component(entity, change, entity_storage)
+        self.volatile
+            .modify_component(entity, change, entity_storage)
     }
 
     pub fn add_component<T: StaticComponentType>(
@@ -19,7 +21,8 @@ impl World {
         component: T,
     ) -> WorldResult {
         let entity_storage = self.stable.entity_storage.get_mut();
-        self.volatile.add_component(entity, component, entity_storage)
+        self.volatile
+            .add_component(entity, component, entity_storage)
     }
 
     pub fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey) -> WorldResult {
