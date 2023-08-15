@@ -6,6 +6,7 @@ use reactex_macro::EcsComponent;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
+use reactex_core::world_mod::configure::ConfigurableWorld;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}
@@ -16,13 +17,14 @@ struct B {}
 #[test]
 fn AppearEventAvailableAfterComponentCreation() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(A), move |entity| {
             matched.borrow_mut().push(entity)
-        });
+        })
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -32,13 +34,14 @@ fn AppearEventAvailableAfterComponentCreation() {
 #[test]
 fn AppearEventNotAvailableBeforeCommit() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(A), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     assert_eq!(matched.borrow().deref(), &vec! {});
@@ -47,13 +50,14 @@ fn AppearEventNotAvailableBeforeCommit() {
 #[test]
 fn EntityDisappearAvailableAfterComponentRemoval() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -66,13 +70,14 @@ fn EntityDisappearAvailableAfterComponentRemoval() {
 #[test]
 fn EntityDisappearNotAvailableBeforeCommit() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -83,13 +88,14 @@ fn EntityDisappearNotAvailableBeforeCommit() {
 #[test]
 fn EntityDisappearNotAvailableBeforeRemoval() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -99,13 +105,14 @@ fn EntityDisappearNotAvailableBeforeRemoval() {
 #[test]
 fn EmptyFilterEntityAppearAfterEntityCreated() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.execute_all();
     assert_eq!(matched.borrow().deref(), &vec! {eA});
@@ -114,13 +121,14 @@ fn EmptyFilterEntityAppearAfterEntityCreated() {
 #[test]
 fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let _eA = world.create_entity();
     assert_eq!(matched.borrow().deref(), &vec!());
 }
@@ -128,13 +136,14 @@ fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted() {
 #[test]
 fn ABAppearEventForAB() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(A, B), move |entity| {
             matched.borrow_mut().push(entity)
         });
     }
+    let mut world = world.complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.add_component(eA, B {}).unwrap();

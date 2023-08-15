@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
+use reactex_core::world_mod::configure::ConfigurableWorld;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}
@@ -28,13 +29,14 @@ struct AnotherSignal();
 #[test]
 fn GlobalSignalReceived() {
     let received = Rc::new(RefCell::new(vec![]));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |signal, _| {
             received.borrow_mut().push(*signal)
         });
     }
+    let mut world = world.complete_configuration();
     world.signal(Signal::new(42));
     world.execute_all();
 
@@ -44,13 +46,14 @@ fn GlobalSignalReceived() {
 #[test]
 fn GlobalSignalNotReceivedBeforeExecution() {
     let received = Rc::new(RefCell::new(vec![]));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |signal, _| {
             received.borrow_mut().push(*signal)
         });
     }
+    let mut world = world.complete_configuration();
     world.signal(Signal::new(Default::default()));
 
     assert_eq!(received.borrow().deref(), &vec! {});
@@ -59,13 +62,14 @@ fn GlobalSignalNotReceivedBeforeExecution() {
 #[test]
 fn GlobalSignalReceivedInOrderOfSubmission() {
     let received = Rc::new(RefCell::new(vec![]));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |signal, _| {
             received.borrow_mut().push(*signal)
         })
     };
+    let mut world = world.complete_configuration();
     world.signal(Signal::new(17));
     world.signal(Signal::new(42));
     world.execute_all();
@@ -79,7 +83,7 @@ fn GlobalSignalReceivedInOrderOfSubmission() {
 #[test]
 fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
     let received = Rc::new(RefCell::new(Vec::<Box<dyn Debug>>::new()));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
         world.add_global_signal_handler::<AnotherSignal>("test", move |signal, _| {
@@ -92,6 +96,7 @@ fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
             received.borrow_mut().push(Box::new(*signal))
         });
     }
+    let mut world = world.complete_configuration();
     world.signal(Signal::new(17));
     world.signal(AnotherSignal());
     world.execute_all();
@@ -108,7 +113,7 @@ fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
 #[test]
 fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
     let received = Rc::new(RefCell::new(vec![]));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         world.add_global_signal_handler::<AnotherSignal>("test", move |signal, signal_queue| {
             signal_queue.signal(Signal::new(17))
@@ -120,6 +125,7 @@ fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
             received.borrow_mut().push(*signal)
         });
     }
+    let mut world = world.complete_configuration();
 
     world.signal(AnotherSignal());
     world.execute_all();
@@ -131,7 +137,7 @@ fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
 fn EntityMatchedAndSignalReceived() {
     let received_signals = Rc::new(RefCell::new(vec![]));
     let matched_entities = Rc::new(RefCell::new(vec![]));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let received_signals = received_signals.clone();
         let matched_entities = matched_entities.clone();
@@ -144,6 +150,7 @@ fn EntityMatchedAndSignalReceived() {
             },
         );
     }
+    let mut world = world.complete_configuration();
 
     let e1 = world.create_entity();
     world.add_component(e1, A {}).unwrap();
@@ -160,7 +167,7 @@ fn EntityMatchedAndSignalReceived() {
 fn NotEntityMatchedAndSignalReceived() {
     let received_signals = Rc::new(RefCell::new(vec![]));
     let matched_entities = Rc::new(RefCell::new(vec![]));
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new();
     {
         let received_signals = received_signals.clone();
         let matched_entities = matched_entities.clone();
@@ -173,6 +180,7 @@ fn NotEntityMatchedAndSignalReceived() {
             },
         );
     }
+    let mut world = world.complete_configuration();
 
     let _e1 = world.create_entity();
 

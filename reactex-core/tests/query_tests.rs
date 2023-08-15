@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use reactex_core::filter::filter_desc::ecs_filter;
+use reactex_core::world_mod::configure::ConfigurableWorld;
 use reactex_core::world_mod::world::{VolatileWorld, World};
 use reactex_macro::EcsComponent;
 
@@ -12,7 +13,7 @@ struct B {}
 
 #[test]
 fn CommittedEntityQueriedByPreCreatedQuery() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
 
     world.query(ecs_filter!(A), |_| {});
 
@@ -28,7 +29,7 @@ fn CommittedEntityQueriedByPreCreatedQuery() {
 
 #[test]
 fn CommittedEntityQueriedByLateQuery() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
     world.execute_all();
@@ -41,7 +42,7 @@ fn CommittedEntityQueriedByLateQuery() {
 
 #[test]
 fn UnCommittedEntityNotShown() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
 
@@ -53,7 +54,7 @@ fn UnCommittedEntityNotShown() {
 
 #[test]
 fn ANotMatchesB() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A::default()).unwrap();
     let eB = world.create_entity();
@@ -68,7 +69,7 @@ fn ANotMatchesB() {
 
 #[test]
 fn EmptyNotMatches() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     world.create_entity();
     let eB = world.create_entity();
     world.add_component(eB, B::default()).unwrap();
@@ -82,7 +83,7 @@ fn EmptyNotMatches() {
 
 #[test]
 fn ABMatchesAB() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let eAB = world.create_entity();
     world.add_component(eAB, A::default()).unwrap();
     world.add_component(eAB, B::default()).unwrap();
@@ -96,7 +97,7 @@ fn ABMatchesAB() {
 
 #[test]
 fn ANotMatchedToAB() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
     world.execute_all();
@@ -109,7 +110,7 @@ fn ANotMatchedToAB() {
 
 #[test]
 fn ABMatchedToA() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let eAB = world.create_entity();
     world.add_component(eAB, A::default()).unwrap();
     world.add_component(eAB, B::default()).unwrap();
@@ -123,7 +124,7 @@ fn ABMatchedToA() {
 
 #[test]
 fn EmptyMatchesEmpty() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let eEmpty = world.create_entity();
     world.execute_all();
 
@@ -135,7 +136,7 @@ fn EmptyMatchesEmpty() {
 
 #[test]
 fn AMatchesEmpty() {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
     let eA = world.create_entity();
     world.add_component(eA, A::default()).unwrap();
     world.execute_all();

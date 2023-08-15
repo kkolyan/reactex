@@ -63,7 +63,7 @@ pub struct World {
 
 #[allow(clippy::new_without_default)]
 impl World {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mut world = Self {
             volatile: VolatileWorld::new(),
             stable: StableWorld::new(),

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use ctor::ctor;
+use reactex_core::world_mod::configure::ConfigurableWorld;
 
 use reactex_core::world_mod::world::{EntityError, World};
 use reactex_core::world_mod::world::VolatileWorld;
@@ -42,7 +43,7 @@ fn entity_exists_immediately() {
 }
 
 fn create_world() -> World {
-    let mut world = World::new();
+    let mut world = ConfigurableWorld::new().complete_configuration();
 
     // just noise to avoid false positives due to zero indexes or absence of interference
 
