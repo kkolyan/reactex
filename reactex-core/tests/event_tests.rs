@@ -1,9 +1,7 @@
 #![allow(non_snake_case)]
 
 use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_core::world_mod::configure::ConfigurableWorld;
-use reactex_core::world_mod::world::VolatileWorld;
-use reactex_core::world_mod::world::World;
+use reactex_core::world_mod::world::ConfigurableWorld;
 use reactex_macro::EcsComponent;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -25,7 +23,7 @@ fn AppearEventAvailableAfterComponentCreation() {
             matched.borrow_mut().push(entity)
         })
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -42,7 +40,7 @@ fn AppearEventNotAvailableBeforeCommit() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     assert_eq!(matched.borrow().deref(), &vec! {});
@@ -58,7 +56,7 @@ fn EntityDisappearAvailableAfterComponentRemoval() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -78,7 +76,7 @@ fn EntityDisappearNotAvailableBeforeCommit() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -96,7 +94,7 @@ fn EntityDisappearNotAvailableBeforeRemoval() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.execute_all();
@@ -113,7 +111,7 @@ fn EmptyFilterEntityAppearAfterEntityCreated() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.execute_all();
     assert_eq!(matched.borrow().deref(), &vec! {eA});
@@ -129,7 +127,7 @@ fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let _eA = world.create_entity();
     assert_eq!(matched.borrow().deref(), &vec!());
 }
@@ -144,7 +142,7 @@ fn ABAppearEventForAB() {
             matched.borrow_mut().push(entity)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     let eA = world.create_entity();
     world.add_component(eA, A {}).unwrap();
     world.add_component(eA, B {}).unwrap();

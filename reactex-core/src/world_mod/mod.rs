@@ -11,5 +11,5 @@ pub(crate) mod signal_queue;
 pub mod signal_sender;
 pub(crate) mod signal_storage;
 pub mod world;
+pub mod world_facade;
 pub mod world_read;
-pub mod world_runtime_facade;

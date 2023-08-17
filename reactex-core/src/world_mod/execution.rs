@@ -35,7 +35,7 @@ impl StepAction for InvokeSignalHandler {
 }
 
 impl World {
-    pub fn execute_all(&mut self) {
+    pub(crate) fn execute_all_internal(&mut self) {
         trace!("execute_all");
         let mut ctx = ExecutionContext { cursor: 0 };
         while ctx.cursor < self.stable.sequence.len() {
@@ -50,7 +50,7 @@ impl World {
                     condition,
                     destination_index,
                 } => {
-                    if condition(&mut self.volatile) {
+                    if condition(&self.volatile) {
                         ctx.cursor = destination_index;
                     }
                 }

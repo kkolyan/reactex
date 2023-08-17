@@ -63,7 +63,6 @@ pub struct World {
     pub(crate) stable: StableWorld,
 }
 
-#[allow(clippy::new_without_default)]
 impl World {
     pub(crate) fn new() -> Self {
         let mut world = Self {
@@ -161,7 +160,6 @@ impl StableWorld {
     }
 }
 
-#[allow(clippy::new_without_default)]
 impl VolatileWorld {
     pub fn new() -> Self {
         VolatileWorld {
@@ -594,7 +592,7 @@ impl World {
                 &mut self.volatile.current_cause,
                 &mut self.volatile.signal_queue,
                 &mut self.volatile.signal_storage,
-                &mut self.stable.filter_manager.get_mut(),
+                self.stable.filter_manager.get_mut(),
             );
         }
     }
@@ -606,4 +604,8 @@ pub enum EntityError {
     NotExists,
     NotCommitted,
     IsStale,
+}
+
+pub struct ConfigurableWorld {
+    pub(crate) fetus: World,
 }

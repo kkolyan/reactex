@@ -1,9 +1,7 @@
 #![allow(non_snake_case)]
 
 use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_core::world_mod::configure::ConfigurableWorld;
-use reactex_core::world_mod::world::VolatileWorld;
-use reactex_core::world_mod::world::World;
+use reactex_core::world_mod::world::ConfigurableWorld;
 use reactex_macro::EcsComponent;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -37,7 +35,7 @@ fn GlobalSignalReceived() {
             received.borrow_mut().push(*signal)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     world.signal(Signal::new(42));
     world.execute_all();
 
@@ -54,7 +52,7 @@ fn GlobalSignalNotReceivedBeforeExecution() {
             received.borrow_mut().push(*signal)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     world.signal(Signal::new(Default::default()));
 
     assert_eq!(received.borrow().deref(), &vec! {});
@@ -70,7 +68,7 @@ fn GlobalSignalReceivedInOrderOfSubmission() {
             received.borrow_mut().push(*signal)
         })
     };
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     world.signal(Signal::new(17));
     world.signal(Signal::new(42));
     world.execute_all();
@@ -97,7 +95,7 @@ fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
             received.borrow_mut().push(Box::new(*signal))
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
     world.signal(Signal::new(17));
     world.signal(AnotherSignal());
     world.execute_all();
@@ -126,7 +124,7 @@ fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
             received.borrow_mut().push(*signal)
         });
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
 
     world.signal(AnotherSignal());
     world.execute_all();
@@ -151,7 +149,7 @@ fn EntityMatchedAndSignalReceived() {
             },
         );
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
 
     let e1 = world.create_entity();
     world.add_component(e1, A {}).unwrap();
@@ -181,7 +179,7 @@ fn NotEntityMatchedAndSignalReceived() {
             },
         );
     }
-    let mut world = world.complete_configuration();
+    let mut world = world.seal();
 
     let _e1 = world.create_entity();
 
