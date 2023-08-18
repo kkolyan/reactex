@@ -34,7 +34,7 @@ pub fn derive_ecs_component(item: TokenStream, module_path: &str, types_file: &s
     let register_type_callback = format_ident!("register_type_callback_{}", ty.to_string());
     let register_type = format_ident!("register_type_{}", ty.to_string());
     quote! {
-        impl ::reactex_core::component::StaticComponentType for #ty {
+        impl ::reactex_core::component::EcsComponent for #ty {
             const NAME: &'static str = #ty_str;
             const INDEX: u16 = #index + 1;
         }

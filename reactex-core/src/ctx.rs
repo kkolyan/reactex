@@ -2,7 +2,7 @@
 // use crate::entity::{EntityKey, InternalEntityKey};
 // use crate::mut_ref::Mut;
 // use crate::world_state::WorldState;
-// use crate::StaticComponentType;
+// use crate::EcsComponent;
 //
 // pub struct Ctx<'a, T = ()> {
 //     pub state: &'a WorldState,
@@ -18,11 +18,11 @@
 //     pub fn query(&self, filter_key: &FilterDesc, mut callback: impl FnMut(EntityKey)) {
 //     }
 //
-//     pub fn get_component<T: StaticComponentType>(&self, entity_key: EntityKey) -> Option<&T> {
+//     pub fn get_component<T: EcsComponent>(&self, entity_key: EntityKey) -> Option<&T> {
 //         None
 //     }
 //
-//     pub fn get_component_for_mut<'a, T: StaticComponentType>(
+//     pub fn get_component_for_mut<'a, T: EcsComponent>(
 //         &self,
 //         entity_key: EntityKey,
 //     ) -> Option<Mut<'a, T>> {
@@ -34,5 +34,5 @@
 //
 //     pub fn delete_entity(&mut self, entity: EntityKey) {}
 //
-//     pub fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey) {}
+//     pub fn remove_component<T: EcsComponent>(&mut self, entity: EntityKey) {}
 // }

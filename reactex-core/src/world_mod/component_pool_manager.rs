@@ -1,5 +1,5 @@
 use crate::component::ComponentType;
-use crate::component::StaticComponentType;
+use crate::component::EcsComponent;
 use crate::pools::AbstractPool;
 use crate::pools::PoolKey;
 use crate::pools::SpecificPool;
@@ -27,7 +27,7 @@ impl ComponentPoolManager<TempComponentDataKey> {
 }
 
 impl<TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKey> {
-    pub fn init_pool<TComponent: StaticComponentType>(&mut self, name: &str) {
+    pub fn init_pool<TComponent: EcsComponent>(&mut self, name: &str) {
         info!("initialize pool {:?} with {}", name, TComponent::NAME);
         assert!(
             self.by_type

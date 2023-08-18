@@ -1,4 +1,4 @@
-use crate::component::StaticComponentType;
+use crate::component::EcsComponent;
 use crate::entity::EntityIndex;
 use crate::entity::EntityKey;
 use crate::pools::SpecificPool;
@@ -11,7 +11,7 @@ use log::trace;
 use std::ops::Deref;
 
 impl StableWorld {
-    pub fn get_component<T: StaticComponentType>(
+    pub fn get_component<T: EcsComponent>(
         &self,
         entity: EntityKey,
     ) -> WorldResult<Option<&T>> {
@@ -21,7 +21,7 @@ impl StableWorld {
         Ok(self.get_component_no_validation(entity))
     }
 
-    fn get_component_no_validation<T: StaticComponentType>(
+    fn get_component_no_validation<T: EcsComponent>(
         &self,
         entity: EntityIndex,
     ) -> Option<&T> {
@@ -31,11 +31,11 @@ impl StableWorld {
             .get(&T::get_component_type())?
             .get(&entity)?;
         let instance = self.get_component_data::<T>()?.get(data);
-        trace!("component found: {:?}", instance);
+        // trace!("component found: {:?}", instance);
         instance
     }
 
-    pub(crate) fn get_component_data<T: StaticComponentType>(
+    pub(crate) fn get_component_data<T: EcsComponent>(
         &self,
     ) -> Option<&SpecificPool<ComponentDataKey, T>> {
         self.component_data
@@ -43,7 +43,7 @@ impl StableWorld {
             .specializable()
             .try_specialize::<T>()
     }
-    pub fn has_component<T: StaticComponentType>(&self, entity: EntityKey) -> WorldResult<bool> {
+    pub fn has_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<bool> {
         let entity = entity
             .validate(self.entity_storage.borrow().deref(), DenyUncommitted)?
             .index;

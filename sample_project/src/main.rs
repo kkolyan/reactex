@@ -15,6 +15,7 @@ use reactex_core::reactex_macro::EcsComponent;
 
 // all ECS systems are bound to some module ID. this ID could be used to register all associated
 // ECS systems at once at ECS initialization.
+// under the hood that's RwLock<Vec<fn(...)+metadata>>
 ecs_module!(DEMO);
 
 // most of ECS systems invocation are bound to signals. the most obvious is frame update signal.
@@ -23,19 +24,20 @@ struct SomeSignal;
 
 struct AnotherSignal;
 
-#[derive(EcsComponent, Debug)]
+// component type is a component identifier. it's required to derive EcsComponent (Debug)
+#[derive(EcsComponent)]
 struct A {}
 
-#[derive(EcsComponent, Debug)]
+#[derive(EcsComponent)]
 struct B {}
 
-#[derive(EcsComponent, Debug)]
+#[derive(EcsComponent)]
 struct C {
     value: i32,
 }
 
 // attribute macro generates code to associate function reference and its metadata with a DEMO module
-// module may be defined in other package if needed
+// module may be defined in other package if needed.
 #[on_signal_global(DEMO)]
 fn system1(ctx: Ctx<SomeSignal>) {
     // this code invoked one time if corresponding signal issued.

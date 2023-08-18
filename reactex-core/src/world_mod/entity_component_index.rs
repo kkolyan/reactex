@@ -1,5 +1,5 @@
 use crate::component::ComponentType;
-use crate::component::StaticComponentType;
+use crate::component::EcsComponent;
 use crate::entity::EntityIndex;
 use crate::lang::boxed_slice;
 
@@ -12,7 +12,7 @@ pub(crate) struct EntityComponentIndex {
 #[derive(Debug)]
 struct NoneComponent;
 
-impl StaticComponentType for NoneComponent {
+impl EcsComponent for NoneComponent {
     const INDEX: u16 = 0;
     const NAME: &'static str = concat!("::", module_path!(), "::NullType");
 }

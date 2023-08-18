@@ -1,4 +1,4 @@
-use crate::component::StaticComponentType;
+use crate::component::EcsComponent;
 use crate::entity::EntityKey;
 use crate::filter::filter_desc::FilterDesc;
 use crate::world_mod::signal_sender::SignalSender;
@@ -89,17 +89,17 @@ impl World {
 
 // work with components
 impl World {
-    pub fn get_component<T: StaticComponentType>(
+    pub fn get_component<T: EcsComponent>(
         &self,
         entity: EntityKey,
     ) -> WorldResult<Option<&T>> {
         self.stable.get_component::<T>(entity)
     }
-    pub fn has_component<T: StaticComponentType>(&self, entity: EntityKey) -> WorldResult<bool> {
+    pub fn has_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<bool> {
         self.stable.has_component::<T>(entity)
     }
 
-    pub fn modify_component<T: StaticComponentType>(
+    pub fn modify_component<T: EcsComponent>(
         &mut self,
         entity: EntityKey,
         change: impl FnOnce(&mut T) + 'static,
@@ -109,7 +109,7 @@ impl World {
             .modify_component(entity, change, entity_storage)
     }
 
-    pub fn add_component<T: StaticComponentType>(
+    pub fn add_component<T: EcsComponent>(
         &mut self,
         entity: EntityKey,
         component: T,
@@ -119,7 +119,7 @@ impl World {
             .add_component(entity, component, entity_storage)
     }
 
-    pub fn remove_component<T: StaticComponentType>(&mut self, entity: EntityKey) -> WorldResult {
+    pub fn remove_component<T: EcsComponent>(&mut self, entity: EntityKey) -> WorldResult {
         let entity_storage = self.stable.entity_storage.get_mut();
         self.volatile.remove_component::<T>(entity, entity_storage)
     }

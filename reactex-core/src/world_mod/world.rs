@@ -1,6 +1,6 @@
 use crate::cause::Cause;
 use crate::component::ComponentType;
-use crate::component::StaticComponentType;
+use crate::component::EcsComponent;
 use crate::entity::EntityIndex;
 use crate::entity::EntityKey;
 use crate::entity::InternalEntityKey;
@@ -78,7 +78,7 @@ impl World {
         world
     }
 
-    pub fn register_component<T: StaticComponentType>(&mut self) {
+    pub fn register_component<T: EcsComponent>(&mut self) {
         self.stable.component_data.init_pool::<T>("live components");
         self.volatile
             .component_data_uncommitted
@@ -191,7 +191,7 @@ pub struct ComponentKey {
 }
 
 impl ComponentKey {
-    pub(crate) fn of<T: StaticComponentType>(entity: InternalEntityKey) -> ComponentKey {
+    pub(crate) fn of<T: EcsComponent>(entity: InternalEntityKey) -> ComponentKey {
         ComponentKey {
             entity,
             component_type: T::get_component_type(),
@@ -243,7 +243,7 @@ pub enum ComponentNotFoundError {
 }
 
 impl VolatileWorld {
-    pub(crate) fn modify_component<T: StaticComponentType>(
+    pub(crate) fn modify_component<T: EcsComponent>(
         &mut self,
         entity: EntityKey,
         change: impl FnOnce(&mut T) + 'static,
@@ -264,7 +264,7 @@ impl VolatileWorld {
         Ok(())
     }
 
-    pub(crate) fn add_component<T: StaticComponentType>(
+    pub(crate) fn add_component<T: EcsComponent>(
         &mut self,
         entity: EntityKey,
         component: T,
@@ -291,7 +291,7 @@ impl VolatileWorld {
         Ok(())
     }
 
-    pub(crate) fn remove_component<T: StaticComponentType>(
+    pub(crate) fn remove_component<T: EcsComponent>(
         &mut self,
         entity: EntityKey,
         entity_storage: &EntityStorage,

@@ -1,4 +1,4 @@
-use crate::component::StaticComponentType;
+use crate::component::EcsComponent;
 use crate::entity::EntityKey;
 use crate::entity::InternalEntityKey;
 use crate::world_mod::world::ConfigurableWorld;
@@ -98,7 +98,7 @@ impl EntityKey {
     // }
 }
 
-impl<'a, TComponent: StaticComponentType> Deref for Mut<'a, TComponent> {
+impl<'a, TComponent: EcsComponent> Deref for Mut<'a, TComponent> {
     type Target = TComponent;
 
     fn deref(&self) -> &Self::Target {
@@ -106,7 +106,7 @@ impl<'a, TComponent: StaticComponentType> Deref for Mut<'a, TComponent> {
     }
 }
 
-impl<'a, TComponent: StaticComponentType> Mut<'a, TComponent> {
+impl<'a, TComponent: EcsComponent> Mut<'a, TComponent> {
     pub fn new(entity: Entity<'a>) -> Self {
         Mut {
             pd: Default::default(),
@@ -131,7 +131,7 @@ impl<'a> Entity<'a> {
             .unwrap();
     }
 
-    pub fn add<TComponent: StaticComponentType>(&self, value: TComponent) {
+    pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
         let entity_storage = self.stable.entity_storage.borrow();
         let volatile_world = &mut self.volatile.borrow_mut();
         volatile_world
@@ -140,13 +140,13 @@ impl<'a> Entity<'a> {
             .unwrap();
     }
 
-    pub fn get<TComponent: StaticComponentType>(&self) -> Option<&TComponent> {
+    pub fn get<TComponent: EcsComponent>(&self) -> Option<&TComponent> {
         self.stable
             .get_component::<TComponent>(self.key.export())
             .unwrap()
     }
 
-    pub fn remove<TComponent: StaticComponentType>(&self) {
+    pub fn remove<TComponent: EcsComponent>(&self) {
         let entity_storage = self.stable.entity_storage.borrow();
         let volatile_world = &mut self.volatile.borrow_mut();
         volatile_world
@@ -155,7 +155,7 @@ impl<'a> Entity<'a> {
             .unwrap()
     }
 
-    pub fn modify<TComponent: StaticComponentType>(
+    pub fn modify<TComponent: EcsComponent>(
         &self,
         change: impl FnOnce(&mut TComponent) + 'static,
     ) {
@@ -182,7 +182,7 @@ impl<'a> UncommittedEntity<'a> {
         .destroy();
     }
 
-    pub fn add<TComponent: StaticComponentType>(&self, value: TComponent) {
+    pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
         Entity {
             key: self.key,
             stable: self.stable,

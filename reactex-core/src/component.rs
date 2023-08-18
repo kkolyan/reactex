@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub trait StaticComponentType: Debug + 'static {
+pub trait EcsComponent : 'static {
     const INDEX: u16;
     const NAME: &'static str;
 
@@ -9,7 +9,7 @@ pub trait StaticComponentType: Debug + 'static {
     }
 }
 
-pub const fn component_type_of<T: StaticComponentType>() -> ComponentType {
+pub const fn component_type_of<T: EcsComponent>() -> ComponentType {
     ComponentType { index: T::INDEX }
 }
 
