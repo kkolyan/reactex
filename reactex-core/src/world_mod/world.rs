@@ -314,14 +314,17 @@ impl VolatileWorld {
 }
 
 impl VolatileWorld {
-    pub(crate) fn create_entity(&mut self, entity_storage: &mut EntityStorage) -> EntityKey {
+    pub(crate) fn create_entity(
+        &mut self,
+        entity_storage: &mut EntityStorage,
+    ) -> InternalEntityKey {
         let entity = entity_storage.new_entity();
         self.entity_component_index.add_entity(entity.index);
         self.entities_to_commit
             .entry(entity)
             .or_default()
             .push(self.current_cause.clone());
-        entity.export()
+        entity
     }
 
     pub(crate) fn destroy_entity(
@@ -367,10 +370,10 @@ impl World {
                 .entity_storage
                 .get_mut()
                 .mark_committed(task.index);
-            self.stable.filter_manager.get_mut().on_entity_created(
-                task,
-                causes,
-            );
+            self.stable
+                .filter_manager
+                .get_mut()
+                .on_entity_created(task, causes);
         }
     }
 
@@ -512,10 +515,10 @@ impl World {
                 .entity_storage
                 .get_mut()
                 .delete_entity_data(entity.index);
-            self.stable.filter_manager.get_mut().on_entity_destroyed(
-                entity,
-                causes,
-            );
+            self.stable
+                .filter_manager
+                .get_mut()
+                .on_entity_destroyed(entity, causes);
         }
     }
 
@@ -540,12 +543,13 @@ impl World {
             self.volatile
                 .entity_component_index
                 .delete_component_type(component_key.entity.index, component_key.component_type);
-            self.stable.filter_manager.get_mut().on_component_removed(
-                FilterComponentChange {
+            self.stable
+                .filter_manager
+                .get_mut()
+                .on_component_removed(FilterComponentChange {
                     component_key,
                     causes,
-                },
-            )
+                })
         }
     }
 
@@ -556,13 +560,11 @@ impl World {
             self.stable
                 .filter_manager
                 .get_mut()
-                .generate_disappear_events(
-                    FilterComponentChange {
-                        component_key,
-                        // TODO consider avoid cloning
-                        causes: causes.clone(),
-                    },
-                );
+                .generate_disappear_events(FilterComponentChange {
+                    component_key,
+                    // TODO consider avoid cloning
+                    causes: causes.clone(),
+                });
             self.volatile
                 .components_to_delete
                 .after_disappear

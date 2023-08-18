@@ -70,7 +70,7 @@ impl World {
 impl World {
     pub fn create_entity(&mut self) -> EntityKey {
         let entity_storage = self.stable.entity_storage.get_mut();
-        self.volatile.create_entity(entity_storage)
+        self.volatile.create_entity(entity_storage).export()
     }
 
     pub fn destroy_entity(&mut self, entity: EntityKey) -> WorldResult {

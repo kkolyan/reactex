@@ -93,7 +93,7 @@ fn analyze_user_function(attr: TokenStream, item: TokenStream) -> Result<UserFun
                                 )),
                             }
                         } else if it.ident == "Entity" {
-                            Ok(Argument(arg_name, ArgumentType::Entity))
+                            Ok(Argument(arg_name, ArgumentType::Entity(it.span())))
                         } else {
                             Err(Error::new(it.span(), "invalid argument type"))
                         }
@@ -179,7 +179,7 @@ fn generate_registration_new(
     event_type: EventType,
 ) -> Result<TokenStream> {
     let requests_entity = user_function.args.iter().any(|Argument(_, ty)| match ty {
-        ArgumentType::Entity => true,
+        ArgumentType::Entity(_) => true,
         ArgumentType::Ctx(_, _)
         | ArgumentType::ComponentReference(_)
         | ArgumentType::ComponentMutableWrapper(_) => false,
@@ -204,7 +204,7 @@ fn generate_registration_new(
                 .filter_map(|Argument(_, ty)| match ty {
                     ArgumentType::Ctx(_, _) => None,
                     ArgumentType::ComponentReference(it) => Some(it),
-                    ArgumentType::Entity => None,
+                    ArgumentType::Entity(_) => None,
                     ArgumentType::ComponentMutableWrapper(it) => Some(it),
                 });
             let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
@@ -217,28 +217,70 @@ fn generate_registration_new(
     let function_name = &user_function.ident;
     let registration_function_name = format_ident!("register_{}", function_name);
 
-    let mut argument_mappings = TokenStream::new();
-    let mut function_args = TokenStream::new();
+    let function_args = TokenStream::from_iter(
+        user_function
+            .args
+            .iter()
+            .map(|Argument(name, ty)| quote! {#name,}),
+    );
 
-    for Argument(name, ty) in user_function.args.iter() {
-        match ty {
-            ArgumentType::Ctx(_, _) => {
-                argument_mappings.append_all(quote! {
-                    let #name = __ctx__;
-                });
-            }
-            ArgumentType::ComponentReference(ty) => argument_mappings.append_all(quote! {
-                let #name = __entity__.get::<#ty>();
-            }),
-            ArgumentType::Entity => argument_mappings.append_all(quote! {
+    let argument_mappings = TokenStream::from_iter(user_function.args.iter().map(
+        |Argument(name, ty)| match ty {
+            ArgumentType::Ctx(_, _) => quote! {
+                let #name = __ctx__;
+            },
+            ArgumentType::ComponentReference(ty) => quote! {
+                let #name = __entity__.get::<#ty>().unwrap();
+            },
+            ArgumentType::ComponentMutableWrapper(ty) => quote! {
+                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::new(__entity__);
+            },
+            ArgumentType::Entity(_) => quote! {
                 let #name = __entity__;
-            }),
-            ArgumentType::ComponentMutableWrapper(ty) => argument_mappings.append_all(quote! {
-                let #name = __entity__.get::<#ty>();
-            }),
+            },
+        },
+    ));
+
+    match event_type {
+        EventType::OnSignalGlobal => {
+            let mut component_types = user_function
+                .args
+                .iter()
+                .filter_map(|Argument(_, ty)| match ty {
+                    ArgumentType::Ctx(_, _) => None,
+                    ArgumentType::Entity(span) => Some(*span),
+                    ArgumentType::ComponentReference(it) => Some(it.span()),
+                    ArgumentType::ComponentMutableWrapper(it) => Some(it.span()),
+                })
+                .map(|it| {
+                    Error::new(
+                        it,
+                        "global events cannot be associated with any entities and components",
+                    )
+                });
+
+            let error = component_types.next();
+            if let Some(mut error) = error {
+                error.extend(component_types);
+                return Err(error);
+            }
         }
-        function_args.append_all(quote! {#name,});
-    }
+        EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {
+            let entity_or_component_args_present =
+                user_function.args.iter().any(|Argument(_, ty)| match ty {
+                    ArgumentType::Ctx(_, _) => false,
+                    ArgumentType::ComponentReference(_)
+                    | ArgumentType::Entity(_)
+                    | ArgumentType::ComponentMutableWrapper(_) => true,
+                });
+            if !entity_or_component_args_present {
+                return Err(Error::new(
+                    user_function.args_span,
+                    "it doesn't make sense without entity or component arguments, so prohibited",
+                ));
+            }
+        }
+    };
 
     let signal_type = user_function
         .args
@@ -305,7 +347,7 @@ fn generate_registration_new(
                 fn wrapper(signal: &#signal_type, entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(signal, stable, &volatile);
-                    let __entity__ = __ctx__.get_entity(entity);
+                    let __entity__ = __ctx__.get_entity(entity).unwrap();
                     #argument_mappings
                     #function_name(#function_args);
                 }
@@ -328,7 +370,7 @@ fn generate_registration_new(
                 fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(&(), stable, &volatile);
-                    let __entity__ = __ctx__.get_entity(entity);
+                    let __entity__ = __ctx__.get_entity(entity).unwrap();
                     #argument_mappings
                     #function_name(#function_args);
                 }
@@ -340,7 +382,7 @@ fn generate_registration_new(
                 fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(&(), stable, &volatile);
-                    let __entity__ = __ctx__.get_entity(entity);
+                    let __entity__ = __ctx__.get_entity(entity).unwrap();
                     #argument_mappings
                     #function_name(#function_args);
                 }

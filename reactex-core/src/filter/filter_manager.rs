@@ -3,7 +3,8 @@ use crate::filter::events::FilterComponentChange;
 use crate::filter::filter::Filter;
 use crate::filter::filter_desc::FilterDesc;
 use crate::typed_index_vec::TiVec;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct InternalFilterKey(pub usize);
@@ -21,7 +22,6 @@ pub(crate) struct FilterManager {
 
 // basic operations
 impl FilterManager {
-
     pub fn get_filter_internal(&mut self, key: InternalFilterKey) -> &mut Filter {
         self.owned.get_mut(&key).unwrap()
     }
@@ -69,10 +69,7 @@ impl FilterManager {
         self.owned.get_mut(&filter_index).unwrap()
     }
 
-    pub fn generate_disappear_events(
-        &mut self,
-        component: FilterComponentChange,
-    ) {
+    pub fn generate_disappear_events(&mut self, component: FilterComponentChange) {
         let filters = self
             .by_component_type
             .get_mut(&component.component_key.component_type)
