@@ -29,6 +29,10 @@ struct Y {
     value: i32,
 }
 
+struct NotCopy<T> {
+    value: T,
+}
+
 #[ctor]
 fn init_logging() {
     log4rs::init_file("tests/log4rs.test.yaml", Default::default()).unwrap();
@@ -157,6 +161,24 @@ fn component_state_change_visible_after_commit() {
     world
         .modify_component::<A>(entity, |it| it.value = 42)
         .unwrap();
+    world.execute_all();
+
+    assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 42);
+}
+
+#[test]
+fn component_state_change_may_use_closure() {
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.add_component(entity, A::default()).unwrap();
+    world.execute_all();
+
+    let value = NotCopy { value: 42 };
+
+    world
+        .modify_component::<A>(entity, move |it| it.value = value.value)
+        .unwrap();
+    println!("value: {}", value.value);
     world.execute_all();
 
     assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 42);

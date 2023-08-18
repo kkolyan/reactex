@@ -8,7 +8,7 @@ pub struct Cause {
 }
 
 struct CauseInner {
-    title: String,
+    title: &'static str,
     reasons: OptTinyVec<Cause>,
 }
 
@@ -16,13 +16,16 @@ impl Cause {
     pub fn initial() -> Cause {
         Cause {
             inner: Rc::new(RefCell::new(CauseInner {
-                title: "initial".to_string(),
+                title: "initial",
                 reasons: OptTinyVec::default(),
             })),
         }
     }
 
-    pub(crate) fn consequence(title: String, causes: impl IntoIterator<Item = Cause>) -> Cause {
+    pub(crate) fn consequence(
+        title: &'static str,
+        causes: impl IntoIterator<Item = Cause>,
+    ) -> Cause {
         Cause {
             inner: Rc::new(RefCell::new(CauseInner {
                 title,

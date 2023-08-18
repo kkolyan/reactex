@@ -2,5 +2,6 @@
 members = [
     "reactex-core",
     "lab",
+    "sample_project",
 ]
 resolver = "2"

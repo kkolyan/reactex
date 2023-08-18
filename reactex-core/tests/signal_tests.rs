@@ -31,7 +31,7 @@ fn GlobalSignalReceived() {
     let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
-        world.add_global_signal_handler::<Signal>("test", move |signal, _| {
+        world.add_global_signal_handler::<Signal>("test", move |signal, _, _| {
             received.borrow_mut().push(*signal)
         });
     }
@@ -48,7 +48,7 @@ fn GlobalSignalNotReceivedBeforeExecution() {
     let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
-        world.add_global_signal_handler::<Signal>("test", move |signal, _| {
+        world.add_global_signal_handler::<Signal>("test", move |signal, _, _| {
             received.borrow_mut().push(*signal)
         });
     }
@@ -64,7 +64,7 @@ fn GlobalSignalReceivedInOrderOfSubmission() {
     let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
-        world.add_global_signal_handler::<Signal>("test", move |signal, _| {
+        world.add_global_signal_handler::<Signal>("test", move |signal, _, _| {
             received.borrow_mut().push(*signal)
         })
     };
@@ -85,13 +85,13 @@ fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
     let mut world = ConfigurableWorld::new();
     {
         let received = received.clone();
-        world.add_global_signal_handler::<AnotherSignal>("test", move |signal, _| {
+        world.add_global_signal_handler::<AnotherSignal>("test", move |signal, _, _| {
             received.borrow_mut().push(Box::new(*signal))
         });
     }
     {
         let received = received.clone();
-        world.add_global_signal_handler::<Signal>("test", move |signal, _| {
+        world.add_global_signal_handler::<Signal>("test", move |signal, _, _| {
             received.borrow_mut().push(Box::new(*signal))
         });
     }
@@ -114,13 +114,13 @@ fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
     let received = Rc::new(RefCell::new(vec![]));
     let mut world = ConfigurableWorld::new();
     {
-        world.add_global_signal_handler::<AnotherSignal>("test", move |signal, signal_queue| {
-            signal_queue.signal(Signal::new(17))
+        world.add_global_signal_handler::<AnotherSignal>("test", move |signal, _, volatile| {
+            volatile.signal(Signal::new(17))
         });
     }
     {
         let received = received.clone();
-        world.add_global_signal_handler::<Signal>("test", move |signal, _| {
+        world.add_global_signal_handler::<Signal>("test", move |signal, _, _| {
             received.borrow_mut().push(*signal)
         });
     }
@@ -143,7 +143,7 @@ fn EntityMatchedAndSignalReceived() {
         world.add_entity_signal_handler::<Signal>(
             "test",
             ecs_filter!(A),
-            move |signal, entity, _signal_queue| {
+            move |signal, entity, _, _| {
                 received_signals.borrow_mut().push(*signal);
                 matched_entities.borrow_mut().push(entity)
             },
@@ -173,7 +173,7 @@ fn NotEntityMatchedAndSignalReceived() {
         world.add_entity_signal_handler::<Signal>(
             "test",
             ecs_filter!(A),
-            move |signal, entity, _signal_queue| {
+            move |signal, entity, _, _| {
                 received_signals.borrow_mut().push(*signal);
                 matched_entities.borrow_mut().push(entity)
             },

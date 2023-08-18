@@ -10,16 +10,11 @@ use crate::world_mod::signal_queue::SignalQueue;
 use crate::world_mod::signal_sender::SignalSender;
 use crate::world_mod::signal_storage::SignalStorage;
 use crate::world_mod::world::Signal;
+use crate::world_mod::world::StableWorld;
+use crate::world_mod::world::VolatileWorld;
 
 pub(crate) trait AbstractSignalManager {
-    fn invoke(
-        &mut self,
-        signal: Signal,
-        current_cause: &mut Cause,
-        signal_queue: &mut SignalQueue,
-        signal_storage: &mut SignalStorage,
-        filter_manager: &mut FilterManager,
-    );
+    fn invoke(&self, signal: Signal, current_cause: &StableWorld, signal_queue: &mut VolatileWorld);
     fn as_any_mut(&mut self) -> AnySignalManager;
 }
 
@@ -58,15 +53,9 @@ impl<T> Default for SignalManager<T> {
 }
 
 impl<T: 'static> AbstractSignalManager for SignalManager<T> {
-    fn invoke(
-        &mut self,
-        signal: Signal,
-        current_cause: &mut Cause,
-        signal_queue: &mut SignalQueue,
-        signal_storage: &mut SignalStorage,
-        filter_manager: &mut FilterManager,
-    ) {
-        let payload = signal_storage
+    fn invoke(&self, signal: Signal, stable: &StableWorld, volatile: &mut VolatileWorld) {
+        let payload = volatile
+            .signal_storage
             .payloads
             .get_mut(&signal.payload_type)
             .unwrap()
@@ -76,45 +65,30 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
             .del_and_get(&signal.data_key)
             .unwrap();
 
-        for handler in &mut self.global_handlers {
-            let prev_cause = mem::replace(
-                current_cause,
-                Cause::consequence(handler.name.to_string(), [current_cause.clone()]),
-            );
-            (handler.callback)(
-                &payload,
-                &mut SignalSender {
-                    signal_queue,
-                    current_cause,
-                    signal_storage,
-                },
-            );
-            *current_cause = prev_cause;
+        for handler in &self.global_handlers {
+            let new_cause = Cause::consequence(handler.name, [volatile.current_cause.clone()]);
+            let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
+            (handler.callback)(&payload, stable, volatile);
+            volatile.current_cause = prev_cause;
         }
 
-        for (filter, handlers) in &mut self.handlers {
+        for (filter, handlers) in &self.handlers {
             for handler in handlers {
-                if let Some(matched_entities) =
-                    &filter_manager.get_filter_internal(*filter).matched_entities
+                if let Some(matched_entities) = &stable
+                    .filter_manager
+                    .borrow_mut()
+                    .get_filter_internal(*filter)
+                    .matched_entities
                 {
-                    let prev_cause = mem::replace(
-                        current_cause,
-                        Cause::consequence(handler.name.to_string(), [current_cause.clone()]),
-                    );
+                    let new_cause =
+                        Cause::consequence(handler.name, [volatile.current_cause.clone()]);
+                    let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
 
                     for entity in matched_entities {
-                        (handler.callback)(
-                            &payload,
-                            entity.export(),
-                            &mut SignalSender {
-                                signal_queue,
-                                current_cause,
-                                signal_storage,
-                            },
-                        );
+                        (handler.callback)(&payload, entity.export(), stable, volatile);
                     }
 
-                    *current_cause = prev_cause;
+                    volatile.current_cause = prev_cause;
                 }
             }
         }
@@ -125,5 +99,5 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
     }
 }
 
-pub type GlobalSignalCallback<T> = dyn Fn(&T, &mut SignalSender);
-pub type EntitySignalCallback<T> = dyn Fn(&T, EntityKey, &mut SignalSender);
+pub type GlobalSignalCallback<T> = dyn Fn(&T, &StableWorld, &mut VolatileWorld);
+pub type EntitySignalCallback<T> = dyn Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld);

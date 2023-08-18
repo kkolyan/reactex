@@ -39,7 +39,7 @@ pub fn derive_ecs_component(item: TokenStream, module_path: &str, types_file: &s
             const INDEX: u16 = #index + 1;
         }
 
-        #[ctor::ctor]
+        #[::reactex_core::ctor::ctor]
         fn #register_type_callback() {
             ::reactex_core::world_mod::world::register_type(#register_type);
         }

@@ -1,6 +1,8 @@
 use crate::common;
 use crate::common::extract_component_2;
 use crate::common::render_component_bindings;
+use crate::common::Argument;
+use crate::common::ArgumentType;
 use crate::common::Component;
 use crate::common::ComponentResult;
 use proc_macro2::Span;
@@ -10,7 +12,9 @@ use std::ops::Deref;
 use std::ops::Not;
 use syn::punctuated::*;
 use syn::spanned::Spanned;
+use syn::token::Comma;
 use syn::*;
+use to_vec::ToVec;
 
 #[derive(Copy, Clone)]
 pub enum EventType {
@@ -29,219 +33,329 @@ pub fn on_event(
     item: TokenStream,
     event_type: EventType,
 ) -> Result<TokenStream> {
-    let (module_path, function, ctx, signal_type, components, ctx_ident) =
-        extract_input(attr, item, event_type)?;
+    let user_function = analyze_user_function(attr, item.clone())?;
 
-    let normalized_function =
-        generate_normalized_function(&function, (ctx, ctx_ident), &components, event_type);
-
-    let registration =
-        generate_registration(module_path, &function, signal_type, &components, event_type);
+    let registration = generate_registration_new(user_function, event_type)?;
 
     Ok(quote! {
         #registration
-        #normalized_function
+        #item
     })
 }
 
-fn extract_input(
-    attr: TokenStream,
-    item: TokenStream,
-    event_type: EventType,
-) -> Result<(
-    ExprPath,
-    ItemFn,
-    PatType,
-    Option<Type>,
-    Vec<Component>,
-    Ident,
-)> {
-    let (attribute_name, ctx_type_name) = match event_type {
-        EventType::OnSignal => ("on_signal", "Ctx<T>"),
-        EventType::OnSignalGlobal => ("on_signal_global", "Ctx<T>"),
-        EventType::OnAppear => ("on_appear", "Ctx"),
-        EventType::OnDisappear => ("on_disappear", "Ctx"),
-    };
-    let module_path = parse2::<ExprPath>(attr)?;
-    let function = parse2::<ItemFn>(item)?;
+struct UserFunction {
+    ecs_module_var_path: ExprPath,
+    args: Vec<Argument>,
+    ident: Ident,
+    args_span: Span,
+}
+
+fn analyze_user_function(attr: TokenStream, item: TokenStream) -> Result<UserFunction> {
+    let ecs_module_var_path = parse2::<ExprPath>(attr)?;
+
+    let function = parse2::<ItemFn>(item)
+        .map_err(|err| Error::new(err.span(), "attribute is applicable only to functions"))?;
+
+    let args_span = function.sig.span();
+    let ident = function.sig.ident;
+
     let args: Vec<_> = function
         .sig
         .inputs
         .iter()
         .map(|it| match it {
-            FnArg::Receiver(_) => panic!(
-                "{} is applicable only to top-level free functions",
-                attribute_name
-            ),
-            FnArg::Typed(it) => it,
-        })
-        .collect();
-    if args.is_empty() {
-        panic!(
-            "{} requires first argument - {}",
-            attribute_name, ctx_type_name
-        );
-    }
-    let ctx = *args.first().unwrap();
-
-    let signal_type =
-        extract_signal_type_and_validate_ctx(ctx, event_type).map_err(|ctx_type_error| {
-            Error::new(
-                ctx.span(),
-                format!(
-                    "{} first parameter should be {} value (error_code: {})",
-                    attribute_name, ctx_type_name, ctx_type_error
-                ),
-            )
-        })?;
-
-    let components = &args[1..];
-    if let EventType::OnSignalGlobal = event_type {
-        if components.is_empty().not() {
-            return Err(Error::new(
-                Span::call_site(),
-                format!("{} doesn't accept components", attribute_name),
-            ));
-        }
-    }
-    let components: Vec<_> = components
-        .iter()
-        .enumerate()
-        .map(|(index, component)| {
-            let result = extract_component_2(index, component.pat.deref(), component.ty.deref());
-            match result {
-                ComponentResult::Ok(it) => it,
-                ComponentResult::Error { index, msg } => panic!(
-                    "function parameter {} is not a valid component definition: {}",
-                    index + 1,
-                    msg
-                ),
+            FnArg::Receiver(it) => Err(Error::new(
+                it.span(),
+                "attribute is applicable only to top-level free functions",
+            )),
+            FnArg::Typed(arg) => {
+                let arg_name = match arg.pat.deref() {
+                    Pat::Ident(it) => Pat::Ident(it.clone()),
+                    Pat::Wild(it) => Pat::Wild(it.clone()),
+                    it => return Err(Error::new(it.span(), "invalid argument name")),
+                };
+                let result = match arg.ty.deref() {
+                    Type::Path(it) => {
+                        let it = it.path.segments.last().unwrap();
+                        if it.ident == "Ctx" {
+                            let payload = extract_single_generic_argument_type(it)?;
+                            Ok(Argument(arg_name, ArgumentType::Ctx(it.span(), payload)))
+                        } else if it.ident == "Mut" {
+                            let component = extract_single_generic_argument_type(it)?;
+                            match component {
+                                None => Err(Error::new(
+                                    it.span(),
+                                    "exactly one generic argument expected here",
+                                )),
+                                Some(it) => Ok(Argument(
+                                    arg_name,
+                                    ArgumentType::ComponentMutableWrapper(it),
+                                )),
+                            }
+                        } else if it.ident == "Entity" {
+                            Ok(Argument(arg_name, ArgumentType::Entity))
+                        } else {
+                            Err(Error::new(it.span(), "invalid argument type"))
+                        }
+                    }
+                    Type::Reference(it) => {
+                        if it.lifetime.is_some() {
+                            Err(Error::new(
+                                it.span(),
+                                "explicit lifetimes are not expected here",
+                            ))
+                        } else if it.mutability.is_some() {
+                            Err(Error::new(
+                                it.span(),
+                                "mutability is not allowed here. us Mut wrapper instead.",
+                            ))
+                        } else {
+                            Ok(Argument(
+                                arg_name,
+                                ArgumentType::ComponentReference(it.elem.deref().clone()),
+                            ))
+                        }
+                    }
+                    it => Err(Error::new(it.span(), "invalid argument type")),
+                };
+                result
             }
         })
         .collect();
 
-    let ctx_ident = match ctx.pat.deref() {
-        Pat::Ident(it) => &it.ident,
-        _ => panic!("invalid context variable"),
-    };
-    Ok((
-        module_path,
-        function.clone(),
-        ctx.clone(),
-        signal_type,
-        components,
-        ctx_ident.clone(),
-    ))
+    let mut ok_args = Vec::new();
+    let mut errors = Vec::new();
+
+    for arg in args {
+        match arg {
+            Ok(it) => ok_args.push(it),
+            Err(err) => errors.push(err),
+        }
+    }
+
+    let mut errors = errors.into_iter();
+    if let Some(mut error) = errors.next() {
+        error.extend(errors);
+        return Err(error);
+    }
+
+    Ok(UserFunction {
+        args_span,
+        ident,
+        ecs_module_var_path,
+        args: ok_args,
+    })
 }
 
-fn extract_signal_type_and_validate_ctx(
-    ctx: &PatType,
-    event_type: EventType,
-) -> std::result::Result<Option<Type>, &'static str> {
-    let signal_type = match ctx.ty.deref() {
-        Type::Path(it) => it,
-        _ => {
-            return Err("invalid ctx type");
+fn extract_single_generic_argument_type(it: &PathSegment) -> Result<Option<Type>> {
+    match &it.arguments {
+        PathArguments::None => Ok(None),
+        PathArguments::AngleBracketed(it) => {
+            let params = it.args.iter().to_vec();
+            if params.len() == 1 {
+                match params.first().unwrap() {
+                    GenericArgument::Type(it) => Ok(Some(it.clone())),
+                    it => Err(Error::new(
+                        it.span(),
+                        "generic argument could be only a type",
+                    )),
+                }
+            } else {
+                Err(Error::new(
+                    it.span(),
+                    "at most 1 generic argument expected here",
+                ))
+            }
         }
-    };
+        PathArguments::Parenthesized(it) => Err(Error::new(
+            it.span(),
+            "parenthesized arguments are not expected here",
+        )),
+    }
+}
 
-    let ident = signal_type.path.segments.last().unwrap();
-    if ident.ident != "Ctx" {
-        return Err("invalid ctx type name");
-    }
-    let args = match &ident.arguments {
-        PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) => args.clone(),
-        PathArguments::None => Punctuated::new(),
-        _ => {
-            return Err("invalid ctx generic type");
-        }
-    };
-    let expected_parameters_count = match event_type {
-        EventType::OnSignal | EventType::OnSignalGlobal => 1,
-        EventType::OnAppear | EventType::OnDisappear => 0,
-    };
-    if args.len() != expected_parameters_count {
-        return Err("invalid ctx generic parameters count");
-    }
+fn generate_registration_new(
+    user_function: UserFunction,
+    event_type: EventType,
+) -> Result<TokenStream> {
+    let requests_entity = user_function.args.iter().any(|Argument(_, ty)| match ty {
+        ArgumentType::Entity => true,
+        ArgumentType::Ctx(_, _)
+        | ArgumentType::ComponentReference(_)
+        | ArgumentType::ComponentMutableWrapper(_) => false,
+    });
     match event_type {
-        EventType::OnSignal | EventType::OnSignalGlobal => match args.first().unwrap() {
-            GenericArgument::Type(it) => Ok(Some(it.clone())),
-            _ => Err("invalid ctx generic parameter"),
-        },
-        EventType::OnAppear | EventType::OnDisappear => Ok(None),
-    }
-}
-
-fn generate_normalized_function(
-    function: &ItemFn,
-    (ctx, ctx_ident): (PatType, Ident),
-    components: &Vec<Component>,
-    event_type: EventType,
-) -> ItemFn {
-    let mut normalized_function = function.clone();
-    normalized_function.sig.inputs = Punctuated::new();
-    normalized_function
-        .sig
-        .inputs
-        .push(FnArg::Typed(ctx.clone()));
-
-    if let EventType::OnSignalGlobal = event_type {
-        return normalized_function;
+        EventType::OnSignalGlobal => {
+            if requests_entity {
+                return Err(Error::new(
+                    user_function.args_span,
+                    "no Entity is associated with this event",
+                ));
+            }
+        }
+        EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {}
     }
 
-    let (entity_arg, entity_ident) = common::generate_entity_arg();
-    normalized_function
-        .sig
-        .inputs
-        .push(FnArg::Typed(entity_arg));
-
-    render_component_bindings(
-        &ctx_ident,
-        &components,
-        &mut normalized_function.block,
-        &entity_ident,
-    );
-    normalized_function
-}
-
-fn generate_registration(
-    module_path: ExprPath,
-    function: &ItemFn,
-    signal_type: Option<Type>,
-    components: &Vec<Component>,
-    event_type: EventType,
-) -> ItemFn {
     let filter_key = match event_type {
         EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {
-            let filter_vec = common::generate_filter_vec(components);
-            Some(quote! { let filter_key = reactex::api::FilterDesc::new(vec![#filter_vec]); })
+            let components = user_function
+                .args
+                .iter()
+                .filter_map(|Argument(_, ty)| match ty {
+                    ArgumentType::Ctx(_, _) => None,
+                    ArgumentType::ComponentReference(it) => Some(it),
+                    ArgumentType::Entity => None,
+                    ArgumentType::ComponentMutableWrapper(it) => Some(it),
+                });
+            let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
+            Some(quote! {
+                ::reactex_core::filter::filter_desc::ecs_filter!(#components)
+            })
         }
         EventType::OnSignalGlobal => None,
     };
-    let registration_function_name = format_ident!("register_{}", function.sig.ident);
-    let function_name = &function.sig.ident;
+    let function_name = &user_function.ident;
+    let registration_function_name = format_ident!("register_{}", function_name);
+
+    let mut argument_mappings = TokenStream::new();
+    let mut function_args = TokenStream::new();
+
+    for Argument(name, ty) in user_function.args.iter() {
+        match ty {
+            ArgumentType::Ctx(_, _) => {
+                argument_mappings.append_all(quote! {
+                    let #name = __ctx__;
+                });
+            }
+            ArgumentType::ComponentReference(ty) => argument_mappings.append_all(quote! {
+                let #name = __entity__.get::<#ty>();
+            }),
+            ArgumentType::Entity => argument_mappings.append_all(quote! {
+                let #name = __entity__;
+            }),
+            ArgumentType::ComponentMutableWrapper(ty) => argument_mappings.append_all(quote! {
+                let #name = __entity__.get::<#ty>();
+            }),
+        }
+        function_args.append_all(quote! {#name,});
+    }
+
+    let signal_type = user_function
+        .args
+        .iter()
+        .filter_map(|Argument(_, ty)| match ty {
+            ArgumentType::Ctx(span, it) => Some((span, it)),
+            _ => None,
+        })
+        .to_vec();
+
+    if signal_type.len() > 1 {
+        let mut errors = signal_type
+            .into_iter()
+            .map(|(span, _)| Error::new(*span, "at most 1 Ctx argument expected"));
+        let mut error = errors.next().unwrap();
+        error.extend(errors);
+        return Err(error);
+    }
+    let signal_type = signal_type.into_iter().next();
+
+    let signal_type = match event_type {
+        EventType::OnSignal | EventType::OnSignalGlobal => {
+            let signal_type = match signal_type {
+                None => {
+                    return Err(Error::new(
+                        user_function.args_span,
+                        "exactly 1 Ctx argument expected for this event",
+                    ))
+                }
+                Some((span, signal_type)) => match signal_type {
+                    None => return Err(Error::new(
+                        *span,
+                        "Ctx<..> is expected to be parameterized with payload type for this event",
+                    )),
+                    Some(signal_type) => match signal_type {
+                        Type::Path(signal_type) => signal_type.clone(),
+                        it => {
+                            return Err(Error::new(
+                                it.span(),
+                                "invalid payload type for this event",
+                            ));
+                        }
+                    },
+                },
+            };
+            Some(signal_type)
+        }
+        EventType::OnAppear | EventType::OnDisappear => {
+            if let Some((span, signal_type)) = signal_type {
+                if signal_type.is_some() {
+                    return Err(Error::new(
+                        *span,
+                        "payload type not expected for this event",
+                    ));
+                }
+            }
+            None
+        }
+    };
 
     let registration = match event_type {
         EventType::OnSignal => {
-            quote! { registry.add_entity_signal_handler::<#signal_type>(filter_key, #function_name); }
+            quote! {
+                fn wrapper(signal: &#signal_type, entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                    let volatile = std::cell::RefCell::new(volatile);
+                    let __ctx__ = Ctx::new(signal, stable, &volatile);
+                    let __entity__ = __ctx__.get_entity(entity);
+                    #argument_mappings
+                    #function_name(#function_args);
+                }
+                world.add_entity_signal_handler::<#signal_type>(stringify!(#function_name), #filter_key, wrapper);
+            }
         }
         EventType::OnSignalGlobal => {
-            quote! { registry.add_global_signal_handler::<#signal_type>(#function_name); }
+            quote! {
+                fn wrapper(signal: &#signal_type, stable: &reactex_core::world_mod::world::StableWorld,volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                    let volatile = std::cell::RefCell::new(volatile);
+                    let __ctx__ = Ctx::new(signal, stable, &volatile);
+                    #argument_mappings
+                    #function_name(#function_args);
+                }
+                world.add_global_signal_handler::<#signal_type>(stringify!(#function_name), wrapper);
+            }
         }
         EventType::OnAppear => {
-            quote! { registry.add_entity_appear_handler(filter_key, #function_name); }
+            quote! {
+                fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                    let volatile = std::cell::RefCell::new(volatile);
+                    let __ctx__ = Ctx::new(&(), stable, &volatile);
+                    let __entity__ = __ctx__.get_entity(entity);
+                    #argument_mappings
+                    #function_name(#function_args);
+                }
+                world.add_appear_handler(stringify!(#function_name), #filter_key, wrapper);
+            }
         }
         EventType::OnDisappear => {
-            quote! { registry.add_entity_disappear_handler(filter_key, #function_name); }
+            quote! {
+                fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                    let volatile = std::cell::RefCell::new(volatile);
+                    let __ctx__ = Ctx::new(&(), stable, &volatile);
+                    let __entity__ = __ctx__.get_entity(entity);
+                    #argument_mappings
+                    #function_name(#function_args);
+                }
+                world.add_disappear_handler(stringify!(#function_name), #filter_key, wrapper);
+            }
         }
     };
-    parse_quote! {
-        #[ctor::ctor]
+    let ecs_module_path = user_function.ecs_module_var_path;
+    Ok(quote! {
+        #[::reactex_core::ctor::ctor]
         fn #registration_function_name() {
-            #module_path.write().unwrap().register_later(move || {
-                #filter_key
+            fn configure(world: &mut ::reactex_core::world_mod::world::ConfigurableWorld) {
                 #registration
-            });
+            }
+            #ecs_module_path.write().unwrap().add_configurator(configure);
         }
-    }
+    })
 }

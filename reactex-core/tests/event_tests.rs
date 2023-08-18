@@ -19,7 +19,7 @@ fn AppearEventAvailableAfterComponentCreation() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A), move |entity| {
+        world.add_appear_handler("test", ecs_filter!(A), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         })
     }
@@ -36,7 +36,7 @@ fn AppearEventNotAvailableBeforeCommit() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A), move |entity| {
+        world.add_appear_handler("test", ecs_filter!(A), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -52,7 +52,7 @@ fn EntityDisappearAvailableAfterComponentRemoval() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -72,7 +72,7 @@ fn EntityDisappearNotAvailableBeforeCommit() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -90,7 +90,7 @@ fn EntityDisappearNotAvailableBeforeRemoval() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -107,7 +107,7 @@ fn EmptyFilterEntityAppearAfterEntityCreated() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(), move |entity| {
+        world.add_appear_handler("test", ecs_filter!(), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -123,7 +123,7 @@ fn EmptyFilterEntityAppearNotAvailableAfterEntityCreatedNotCommitted() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(), move |entity| {
+        world.add_disappear_handler("test", ecs_filter!(), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -138,7 +138,7 @@ fn ABAppearEventForAB() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A, B), move |entity| {
+        world.add_appear_handler("test", ecs_filter!(A, B), move |entity, _, _| {
             matched.borrow_mut().push(entity)
         });
     }

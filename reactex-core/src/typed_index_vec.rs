@@ -33,6 +33,13 @@ impl<K, V> TiVec<K, V> {
         self.inner.get_mut(key.as_index())
     }
 
+    pub fn get(&self, key: &K) -> Option<&V>
+    where
+        K: TiVecKey,
+    {
+        self.inner.get(key.as_index())
+    }
+
     pub fn push_with_key(&mut self, f: impl FnOnce(&K) -> V) -> K
     where
         K: TiVecKey,

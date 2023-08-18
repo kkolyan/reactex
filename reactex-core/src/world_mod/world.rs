@@ -8,7 +8,6 @@ use crate::filter::events::FilterComponentChange;
 use crate::filter::filter_desc::FilterDesc;
 use crate::filter::filter_manager::FilterManager;
 use crate::filter::filter_manager::InternalFilterKey;
-use crate::filter::filter_manager_iter::FilterIter;
 use crate::opt_tiny_vec::OptTinyVec;
 use crate::pool_pump::AbstractPoolPump;
 use crate::pool_pump::SpecificPoolPump;
@@ -33,6 +32,7 @@ use std::any::Any;
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::mem;
 use std::ops::Deref;
 use std::sync::Mutex;
@@ -45,12 +45,13 @@ pub struct VolatileWorld {
     pub(crate) components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
     pub(crate) components_to_modify: HashMap<ComponentKey, OptTinyVec<ComponentModify>>,
     pub(crate) component_data_uncommitted: ComponentPoolManager<TempComponentDataKey>,
-    current_cause: Cause,
+    pub(crate) current_cause: Cause,
     pub(crate) signal_queue: SignalQueue,
-    signal_storage: SignalStorage,
+    pub(crate) signal_storage: SignalStorage,
 }
 
 static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
+
 pub fn register_type(registration: fn(&mut World)) {
     COMPONENT_TYPE_REGISTRATIONS
         .lock()
@@ -210,7 +211,7 @@ pub struct ComponentModify {
 
 pub struct EventHandler {
     pub(crate) name: &'static str,
-    pub(crate) callback: Box<dyn Fn(EntityKey)>,
+    pub(crate) callback: Box<dyn Fn(EntityKey, &StableWorld, &mut VolatileWorld)>,
 }
 
 pub struct Signal {
@@ -339,13 +340,14 @@ impl VolatileWorld {
                 .entry(entity)
                 .or_default()
                 .push(Cause::consequence(
-                    "destroy_entity".to_owned(),
+                    "destroy_entity",
                     [self.current_cause.clone()],
                 ))
         }
         Ok(())
     }
 }
+
 impl StableWorld {
     fn get_component_mapping_mut(
         &mut self,
@@ -357,6 +359,7 @@ impl StableWorld {
             .or_default()
     }
 }
+
 impl World {
     pub(crate) fn flush_entity_create_actions(&mut self) {
         for (task, causes) in mem::take(&mut self.volatile.entities_to_commit) {
@@ -364,10 +367,10 @@ impl World {
                 .entity_storage
                 .get_mut()
                 .mark_committed(task.index);
-            self.stable
-                .filter_manager
-                .get_mut()
-                .on_entity_created(task, causes);
+            self.stable.filter_manager.get_mut().on_entity_created(
+                task,
+                causes,
+            );
         }
     }
 
@@ -377,13 +380,17 @@ impl World {
                 .stable
                 .get_component_mapping_mut(component_key.component_type)
                 .get(&component_key.entity.index);
-            let Some(&data) = data else { continue };
+            let Some(&data) = data else {
+                continue;
+            };
             let value = self
                 .stable
                 .component_data
                 .get_pool_mut(component_key.component_type)
                 .get_any_mut(&data);
-            let Some(value) = value else { continue };
+            let Some(value) = value else {
+                continue;
+            };
             for modification in modifications {
                 (modification.callback)(value);
             }
@@ -442,25 +449,17 @@ impl World {
 
     pub(crate) fn invoke_disappear_handlers(&mut self) {
         invoke_handlers(
-            self.stable
-                .filter_manager
-                .get_mut()
-                .take_with_new_disappear_events(),
-            &mut self.stable.on_disappear,
-            &mut self.volatile.current_cause,
             ComponentEventType::Disappear,
+            &mut self.stable,
+            &mut self.volatile,
         );
     }
 
     pub(crate) fn invoke_appear_handlers(&mut self) {
         invoke_handlers(
-            self.stable
-                .filter_manager
-                .get_mut()
-                .take_with_new_appear_events(),
-            &mut self.stable.on_appear,
-            &mut self.volatile.current_cause,
             ComponentEventType::Appear,
+            &mut self.stable,
+            &mut self.volatile,
         );
     }
 }
@@ -471,13 +470,22 @@ enum ComponentEventType {
 }
 
 fn invoke_handlers(
-    mut filters: FilterIter<impl Iterator<Item = InternalFilterKey>>,
-    handlers: &mut HashMap<InternalFilterKey, Vec<EventHandler>>,
-    current_cause: &mut Cause,
     event_type: ComponentEventType,
+    stable: &mut StableWorld,
+    volatile: &mut VolatileWorld,
 ) {
-    while let Some(filter) = filters.next() {
-        if let Some(handlers) = handlers.get_mut(&filter.unique_key) {
+    let filter_manager = &mut stable.filter_manager.borrow_mut();
+    let filters = mem::take(match event_type {
+        ComponentEventType::Appear => &mut filter_manager.with_new_appear_events,
+        ComponentEventType::Disappear => &mut filter_manager.with_new_disappear_events,
+    });
+    let handlers = match event_type {
+        ComponentEventType::Appear => &stable.on_appear,
+        ComponentEventType::Disappear => &stable.on_disappear,
+    };
+    for filter in filters {
+        let filter = filter_manager.get_filter_internal(filter);
+        if let Some(handlers) = handlers.get(&filter.unique_key) {
             for handler in handlers {
                 let events = match event_type {
                     ComponentEventType::Appear => mem::take(&mut filter.appear_events),
@@ -485,10 +493,10 @@ fn invoke_handlers(
                 };
                 if let Some(events) = events {
                     for (entity, causes) in events {
-                        let new_cause = Cause::consequence(handler.name.to_string(), causes);
-                        let prev_cause = mem::replace(current_cause, new_cause);
-                        (handler.callback)(entity.export());
-                        *current_cause = prev_cause;
+                        let new_cause = Cause::consequence(handler.name, causes);
+                        let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
+                        (handler.callback)(entity.export(), stable, volatile);
+                        volatile.current_cause = prev_cause;
                     }
                 }
             }
@@ -503,10 +511,10 @@ impl World {
                 .entity_storage
                 .get_mut()
                 .delete_entity_data(entity.index);
-            self.stable
-                .filter_manager
-                .get_mut()
-                .on_entity_destroyed(entity, causes);
+            self.stable.filter_manager.get_mut().on_entity_destroyed(
+                entity,
+                causes,
+            );
         }
     }
 
@@ -531,13 +539,12 @@ impl World {
             self.volatile
                 .entity_component_index
                 .delete_component_type(component_key.entity.index, component_key.component_type);
-            self.stable
-                .filter_manager
-                .get_mut()
-                .on_component_removed(FilterComponentChange {
+            self.stable.filter_manager.get_mut().on_component_removed(
+                FilterComponentChange {
                     component_key,
                     causes,
-                })
+                },
+            )
         }
     }
 
@@ -548,11 +555,13 @@ impl World {
             self.stable
                 .filter_manager
                 .get_mut()
-                .generate_disappear_events(FilterComponentChange {
-                    component_key,
-                    // TODO consider avoid cloning
-                    causes: causes.clone(),
-                });
+                .generate_disappear_events(
+                    FilterComponentChange {
+                        component_key,
+                        // TODO consider avoid cloning
+                        causes: causes.clone(),
+                    },
+                );
             self.volatile
                 .components_to_delete
                 .after_disappear
@@ -588,15 +597,9 @@ impl World {
             let manager = self
                 .stable
                 .signal_managers
-                .get_mut(&signal.payload_type)
+                .get(&signal.payload_type)
                 .unwrap();
-            manager.invoke(
-                signal,
-                &mut self.volatile.current_cause,
-                &mut self.volatile.signal_queue,
-                &mut self.volatile.signal_storage,
-                self.stable.filter_manager.get_mut(),
-            );
+            manager.invoke(signal, &self.stable, &mut self.volatile);
         }
     }
 }

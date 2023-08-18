@@ -2,11 +2,8 @@ use crate::component::ComponentType;
 use crate::filter::events::FilterComponentChange;
 use crate::filter::filter::Filter;
 use crate::filter::filter_desc::FilterDesc;
-use crate::filter::filter_manager_iter::FilterIter;
 use crate::typed_index_vec::TiVec;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::mem;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct InternalFilterKey(pub usize);
@@ -24,40 +21,9 @@ pub(crate) struct FilterManager {
 
 // basic operations
 impl FilterManager {
-    pub fn take_with_new_disappear_events(
-        &mut self,
-    ) -> FilterIter<impl Iterator<Item = InternalFilterKey> + '_> {
-        FilterIter {
-            source: &mut self.owned,
-            keys: mem::take(&mut self.with_new_disappear_events).into_iter(),
-        }
-    }
-
-    pub fn take_with_new_appear_events(
-        &mut self,
-    ) -> FilterIter<impl Iterator<Item = InternalFilterKey> + '_> {
-        FilterIter {
-            source: &mut self.owned,
-            keys: mem::take(&mut self.with_new_appear_events).into_iter(),
-        }
-    }
 
     pub fn get_filter_internal(&mut self, key: InternalFilterKey) -> &mut Filter {
         self.owned.get_mut(&key).unwrap()
-    }
-
-    pub fn get_by_component_type(
-        &mut self,
-        component_type: ComponentType,
-    ) -> FilterIter<impl Iterator<Item = InternalFilterKey> + '_> {
-        FilterIter {
-            source: &mut self.owned,
-            keys: self
-                .by_component_type
-                .get_mut(&component_type)
-                .into_iter()
-                .flat_map(|it| it.iter().copied()),
-        }
     }
 
     pub fn get_all_entities_filter(&mut self) -> Option<&mut Filter> {
@@ -103,7 +69,10 @@ impl FilterManager {
         self.owned.get_mut(&filter_index).unwrap()
     }
 
-    pub fn generate_disappear_events(&mut self, component: FilterComponentChange) {
+    pub fn generate_disappear_events(
+        &mut self,
+        component: FilterComponentChange,
+    ) {
         let filters = self
             .by_component_type
             .get_mut(&component.component_key.component_type)
@@ -123,5 +92,3 @@ impl FilterManager {
         }
     }
 }
-
-// events

@@ -3,6 +3,8 @@ use crate::entity::EntityKey;
 use crate::filter::filter_desc::FilterDesc;
 use crate::world_mod::signal_sender::SignalSender;
 use crate::world_mod::world::ConfigurableWorld;
+use crate::world_mod::world::StableWorld;
+use crate::world_mod::world::VolatileWorld;
 use crate::world_mod::world::World;
 use crate::world_mod::world::WorldResult;
 
@@ -20,7 +22,7 @@ impl ConfigurableWorld {
     pub fn add_global_signal_handler<T: 'static>(
         &mut self,
         name: &'static str,
-        callback: impl Fn(&T, &mut SignalSender) + 'static,
+        callback: impl Fn(&T, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         self.fetus.add_global_signal_handler(name, callback)
     }
@@ -29,7 +31,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter: FilterDesc,
-        callback: impl Fn(&T, EntityKey, &mut SignalSender) + 'static,
+        callback: impl Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         self.fetus.add_entity_signal_handler(name, filter, callback)
     }
@@ -38,7 +40,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey) + 'static,
+        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         self.fetus.add_disappear_handler(name, filter_key, callback)
     }
@@ -47,7 +49,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey) + 'static,
+        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         self.fetus.add_appear_handler(name, filter_key, callback)
     }
@@ -80,7 +82,7 @@ impl World {
         self.stable.entity_exists(entity)
     }
 
-    pub fn query(&self, filter: FilterDesc, callback: impl FnMut(EntityKey)) {
+    pub fn query(&mut self, filter: FilterDesc, callback: impl FnMut(EntityKey)) {
         self.stable.query(filter, callback)
     }
 }

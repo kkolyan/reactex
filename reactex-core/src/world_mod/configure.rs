@@ -2,8 +2,9 @@ use crate::entity::EntityKey;
 use crate::filter::filter_desc::FilterDesc;
 use crate::world_mod::signal_manager::EntitySignalHandler;
 use crate::world_mod::signal_manager::GlobalSignalHandler;
-use crate::world_mod::signal_sender::SignalSender;
 use crate::world_mod::world::EventHandler;
+use crate::world_mod::world::StableWorld;
+use crate::world_mod::world::VolatileWorld;
 use crate::world_mod::world::World;
 use std::ops::Deref;
 
@@ -11,7 +12,7 @@ impl World {
     pub(crate) fn add_global_signal_handler<T: 'static>(
         &mut self,
         name: &'static str,
-        callback: impl Fn(&T, &mut SignalSender) + 'static,
+        callback: impl Fn(&T, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         self.stable
             .get_signal_manager::<T>()
@@ -26,7 +27,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter: FilterDesc,
-        callback: impl Fn(&T, EntityKey, &mut SignalSender) + 'static,
+        callback: impl Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         let filter = self.stable.filter_manager.get_mut().get_filter(filter);
         filter.track_matched_entities(
@@ -49,7 +50,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey) + 'static,
+        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         let filter = self.stable.filter_manager.get_mut().get_filter(filter_key);
         filter.track_disappear_events();
@@ -68,7 +69,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey) + 'static,
+        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
         let filter = self.stable.filter_manager.get_mut().get_filter(filter_key);
         filter.track_appear_events();

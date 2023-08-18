@@ -84,6 +84,15 @@ impl CtxClosureParse {
     }
 }
 
+pub struct Argument(pub Pat, pub ArgumentType);
+
+pub enum ArgumentType {
+    Ctx(Span, Option<Type>),
+    ComponentReference(Type),
+    Entity,
+    ComponentMutableWrapper(Type),
+}
+
 pub struct Component {
     pub local_ident: PatIdent,
     pub ty: TypePath,
@@ -253,11 +262,10 @@ pub fn generate_entity_arg() -> (PatType, Ident) {
     (pat_type, ident)
 }
 
-pub fn generate_filter_vec(components: &Vec<Component>) -> Punctuated<Expr, Comma> {
-    let mut filter_vec: Punctuated<Expr, Token![,]> = Punctuated::new();
+pub fn generate_filter_vec(components: &Vec<Component>) -> Punctuated<TypePath, Comma> {
+    let mut filter_vec = Punctuated::new();
     for component in components.iter() {
-        let component_type = &component.ty;
-        filter_vec.push(parse_quote! { #component_type::get_component_type() });
+        filter_vec.push(component.ty.clone());
     }
     filter_vec
 }

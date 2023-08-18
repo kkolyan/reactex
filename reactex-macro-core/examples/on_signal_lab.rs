@@ -1,8 +1,6 @@
 use lab_helper::print_expression;
 use quote::quote;
 use reactex_macro_core::lab_helper;
-use syn::parse2;
-use syn::File;
 
 fn main() {
     let attr = quote! {
@@ -13,6 +11,10 @@ fn main() {
             some_user_code();
         }
     };
+    println!("// SOURCE:");
+    println!("{}", print_expression(Ok(item.clone())));
     let result = reactex_macro_core::on_signal::on_signal(attr, item);
+    println!();
+    println!("// RESULT:");
     println!("{}", print_expression(result));
 }

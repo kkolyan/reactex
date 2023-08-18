@@ -52,7 +52,10 @@ impl FilterManager {
         }
     }
 
-    pub fn on_component_removed(&mut self, change: FilterComponentChange) {
+    pub fn on_component_removed(
+        &mut self,
+        change: FilterComponentChange,
+    ) {
         let filters = self
             .by_component_type
             .get_mut(&change.component_key.component_type)
@@ -79,7 +82,11 @@ impl FilterManager {
         }
     }
 
-    pub fn on_entity_destroyed(&mut self, entity: InternalEntityKey, causes: OptTinyVec<Cause>) {
+    pub fn on_entity_destroyed(
+        &mut self,
+        entity: InternalEntityKey,
+        causes: OptTinyVec<Cause>,
+    ) {
         let relevant_key = self.get_all_entities_filter().map(|filter| {
             if let Some(matched_entities) = &mut filter.matched_entities {
                 matched_entities.remove(&entity);
@@ -94,7 +101,11 @@ impl FilterManager {
         }
     }
 
-    pub fn on_entity_created(&mut self, entity: InternalEntityKey, causes: OptTinyVec<Cause>) {
+    pub fn on_entity_created(
+        &mut self,
+        entity: InternalEntityKey,
+        causes: OptTinyVec<Cause>,
+    ) {
         let relevant_key = self.get_all_entities_filter().map(|filter| {
             if let Some(matched_entities) = &mut filter.matched_entities {
                 matched_entities.insert(entity);

@@ -12,12 +12,12 @@ impl TiVecKey for InternalFilterKey {
     }
 }
 
-pub(crate) struct FilterIter<'a, TKeys> {
+pub(crate) struct FilterIterMut<'a, TKeys> {
     pub(crate) source: &'a mut TiVec<InternalFilterKey, Filter>,
     pub(crate) keys: TKeys,
 }
 
-impl<'a, I> FilterIter<'a, I>
+impl<'a, I> FilterIterMut<'a, I>
 where
     I: Iterator<Item = InternalFilterKey>,
 {
@@ -25,6 +25,23 @@ where
         match self.keys.next() {
             None => None,
             Some(it) => self.source.get_mut(&it),
+        }
+    }
+}
+
+pub(crate) struct FilterIter<'a, TKeys> {
+    pub(crate) source: &'a TiVec<InternalFilterKey, Filter>,
+    pub(crate) keys: TKeys,
+}
+
+impl<'a, I> FilterIter<'a, I>
+where
+    I: Iterator<Item = InternalFilterKey>,
+{
+    pub fn next(&mut self) -> Option<&Filter> {
+        match self.keys.next() {
+            None => None,
+            Some(it) => self.source.get(&it),
         }
     }
 }
