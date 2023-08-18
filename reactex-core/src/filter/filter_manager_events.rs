@@ -68,14 +68,6 @@ impl FilterManager {
                 matched.remove(&change.component_key.entity);
                 events = true;
             }
-            if let Some(disappear_events) = &mut filter.disappear_events {
-                // TODO seems like that's duplicated here and in GenerateDisappearEvents
-                disappear_events
-                    .entry(change.component_key.entity)
-                    .or_default()
-                    .extend(change.causes.iter().cloned());
-                events = true;
-            }
             if events {
                 self.with_new_disappear_events.insert(filter.unique_key);
             }

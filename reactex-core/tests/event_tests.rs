@@ -63,7 +63,62 @@ fn EntityDisappearAvailableAfterComponentRemoval() {
     world.remove_component::<A>(eA).unwrap();
     assert_eq!(matched.borrow().deref(), &vec!());
     world.execute_all();
+    world.execute_all();
     assert_eq!(matched.borrow().deref(), &vec! {eA});
+}
+
+#[test]
+fn EntityDisappearDoesntInvokeTwice() {
+    let matched = Rc::new(RefCell::new(Vec::new()));
+    let mut world = ConfigurableWorld::new();
+    {
+        let matched = matched.clone();
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+            matched.borrow_mut().push(entity)
+        });
+    }
+    let mut world = world.seal();
+    let eA = world.create_entity();
+    world.add_component(eA, A {}).unwrap();
+    world.execute_all();
+    world.remove_component::<A>(eA).unwrap();
+    assert_eq!(matched.borrow().deref(), &vec!());
+    world.execute_all();
+    world.execute_all();
+    assert_eq!(matched.borrow().deref(), &vec! {eA});
+}
+
+#[test]
+fn EntityDisappearTwice() {
+    let matched = Rc::new(RefCell::new(Vec::new()));
+    let mut world = ConfigurableWorld::new();
+    {
+        let matched = matched.clone();
+        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+            matched.borrow_mut().push(entity)
+        });
+    }
+    let mut world = world.seal();
+
+    {
+        let eA = world.create_entity();
+        world.add_component(eA, A {}).unwrap();
+        world.execute_all();
+        world.remove_component::<A>(eA).unwrap();
+        world.execute_all();
+
+        matched.borrow_mut().clear();
+    }
+
+    {
+        let eA = world.create_entity();
+        world.add_component(eA, A {}).unwrap();
+        world.execute_all();
+        world.remove_component::<A>(eA).unwrap();
+        world.execute_all();
+
+        assert_eq!(matched.borrow().deref(), &vec! {eA});
+    }
 }
 
 #[test]

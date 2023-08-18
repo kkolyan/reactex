@@ -488,9 +488,10 @@ fn invoke_handlers(
         if let Some(handlers) = handlers.get(&filter.unique_key) {
             for handler in handlers {
                 let events = match event_type {
-                    ComponentEventType::Appear => mem::take(&mut filter.appear_events),
-                    ComponentEventType::Disappear => mem::take(&mut filter.disappear_events),
+                    ComponentEventType::Appear => &mut filter.appear_events,
+                    ComponentEventType::Disappear => &mut filter.disappear_events,
                 };
+                let events = events.as_mut().map(mem::take);
                 if let Some(events) = events {
                     for (entity, causes) in events {
                         let new_cause = Cause::consequence(handler.name, causes);
