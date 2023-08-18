@@ -22,11 +22,11 @@ impl Cause {
         }
     }
 
-    pub(crate) fn create_consequence(&self, title: String) -> Cause {
+    pub(crate) fn consequence(title: String, causes: impl IntoIterator<Item = Cause>) -> Cause {
         Cause {
             inner: Rc::new(RefCell::new(CauseInner {
                 title,
-                reasons: OptTinyVec::single(self.clone()),
+                reasons: OptTinyVec::from_iterable(causes),
             })),
         }
     }

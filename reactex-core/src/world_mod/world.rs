@@ -335,10 +335,13 @@ impl VolatileWorld {
             self.entities_to_commit.remove(&entity);
             entity_storage.delete_entity_data(entity.index);
         } else {
-            self.entities_to_destroy.entry(entity).or_default().push(
-                self.current_cause
-                    .create_consequence("destroy_entity".to_owned()),
-            )
+            self.entities_to_destroy
+                .entry(entity)
+                .or_default()
+                .push(Cause::consequence(
+                    "destroy_entity".to_owned(),
+                    [self.current_cause.clone()],
+                ))
         }
         Ok(())
     }
@@ -477,12 +480,12 @@ fn invoke_handlers(
         if let Some(handlers) = handlers.get_mut(&filter.unique_key) {
             for handler in handlers {
                 let events = match event_type {
-                    ComponentEventType::Appear => &mut filter.appear_events,
-                    ComponentEventType::Disappear => &mut filter.disappear_events,
+                    ComponentEventType::Appear => mem::take(&mut filter.appear_events),
+                    ComponentEventType::Disappear => mem::take(&mut filter.disappear_events),
                 };
                 if let Some(events) = events {
                     for (entity, causes) in events {
-                        let new_cause = current_cause.create_consequence(handler.name.to_string());
+                        let new_cause = Cause::consequence(handler.name.to_string(), causes);
                         let prev_cause = mem::replace(current_cause, new_cause);
                         (handler.callback)(entity.export());
                         *current_cause = prev_cause;

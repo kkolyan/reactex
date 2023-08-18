@@ -79,7 +79,7 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
         for handler in &mut self.global_handlers {
             let prev_cause = mem::replace(
                 current_cause,
-                current_cause.create_consequence(handler.name.to_string()),
+                Cause::consequence(handler.name.to_string(), [current_cause.clone()]),
             );
             (handler.callback)(
                 &payload,
@@ -99,7 +99,7 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
                 {
                     let prev_cause = mem::replace(
                         current_cause,
-                        current_cause.create_consequence(handler.name.to_string()),
+                        Cause::consequence(handler.name.to_string(), [current_cause.clone()]),
                     );
 
                     for entity in matched_entities {

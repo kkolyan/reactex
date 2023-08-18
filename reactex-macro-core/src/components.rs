@@ -3,8 +3,6 @@ use quote::format_ident;
 use quote::quote;
 use std::fs;
 use std::io::ErrorKind;
-use std::str::FromStr;
-use syn::__private::TokenStream2;
 use syn::parse2;
 
 pub fn derive_ecs_component(item: TokenStream, module_path: &str, types_file: &str) -> TokenStream {

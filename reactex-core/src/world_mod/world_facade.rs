@@ -53,10 +53,8 @@ impl ConfigurableWorld {
     }
 }
 
-
 // control
 impl World {
-
     pub fn signal<T: 'static>(&mut self, payload: T) {
         self.volatile.signal(payload)
     }

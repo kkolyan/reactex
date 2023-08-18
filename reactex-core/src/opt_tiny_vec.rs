@@ -25,6 +25,14 @@ impl<T> OptTinyVec<T> {
     }
 
     #[inline]
+    pub fn from_iterable(iterable: impl IntoIterator<Item = T>) -> Self {
+        let iter = iterable.into_iter().map(|it| Some(it));
+        Self {
+            inner: TinyVec::from_iter(iter),
+        }
+    }
+
+    #[inline]
     pub fn push(&mut self, value: T) {
         self.inner.push(Some(value));
     }
