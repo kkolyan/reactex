@@ -8,20 +8,3 @@ pub mod components;
 pub mod lab_helper;
 pub mod on_signal;
 pub mod query;
-pub mod query_2;
-
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-pub fn on_signal_global(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-pub fn on_appear(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-pub fn on_disappear(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}

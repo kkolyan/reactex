@@ -3,18 +3,25 @@ use quote::quote;
 use reactex_macro_core::lab_helper;
 
 fn main() {
-    let attr = quote!(ctx);
+    let attr = quote! {};
     let item = quote! {
-        |victim_pos: &Position, health: Mut<Health>| {
-            if (victim_pos.x - exp_pos.x).powi(2) + (victim_pos.y - exp_pos.y).powi(2) < explosion.range.powi(2) {
-                #[modify(ctx)]
-                || health.health -= 6;
+        fn some_user_function(ctx: Ctx<Update>, explosion: &Explosion, exp_pos: Mut<Position>) {
 
-                #[modify(ctx)]
-                || health.health -= explosion.damage;
-            }
-        };
+            #[query(ctx)]
+            |a: &A| {
+
+            };
+
+            #[query(ctx)]
+            |a: &A, b: &B, en: Entity| {
+
+            };
+        }
     };
-    let result = reactex_macro_core::query::query_attr(attr, item);
+    println!("// SOURCE:");
+    println!("{}", print_expression(Ok(item.clone())));
+    let result = reactex_macro_core::query::enable_queries(attr, item);
+    println!();
+    println!("// RESULT:");
     println!("{}", print_expression(result));
 }

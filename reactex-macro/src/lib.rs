@@ -6,30 +6,16 @@ use reactex_macro_core::on_signal::EventType;
 use std::str::FromStr;
 use syn::parse;
 
-#[proc_macro]
-pub fn query_fn1(input: TokenStream) -> TokenStream {
-    reactex_macro_core::query::query_fn1(input.into())
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
-#[proc_macro]
-pub fn query_fn(input: TokenStream) -> TokenStream {
-    reactex_macro_core::query::query_fn(input.into())
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
 #[proc_macro_attribute]
 pub fn query(attr: TokenStream, item: TokenStream) -> TokenStream {
-    reactex_macro_core::query::query_attr(attr.into(), item.into())
+    reactex_macro_core::query::query(attr.into(), item.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
 
 #[proc_macro_attribute]
 pub fn enable_queries(attr: TokenStream, item: TokenStream) -> TokenStream {
-    reactex_macro_core::query_2::enable_queries(attr.into(), item.into())
+    reactex_macro_core::query::enable_queries(attr.into(), item.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

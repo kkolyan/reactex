@@ -54,17 +54,13 @@ fn analyze_user_function(attr: TokenStream, item: TokenStream) -> Result<UserFun
     let args_span = function.sig.span();
     let ident = function.sig.ident;
 
-    let args = function
-        .sig
-        .inputs
-        .iter()
-        .map(|it| match it {
-            FnArg::Receiver(it) => Err(Error::new(
-                it.span(),
-                "attribute is applicable only to top-level free functions",
-            )),
-            FnArg::Typed(arg) => extract_argument(arg),
-        });
+    let args = function.sig.inputs.iter().map(|it| match it {
+        FnArg::Receiver(it) => Err(Error::new(
+            it.span(),
+            "attribute is applicable only to top-level free functions",
+        )),
+        FnArg::Typed(arg) => extract_argument(arg),
+    });
     let args = common::aggregate_results(args)?;
 
     Ok(UserFunction {
@@ -371,14 +367,15 @@ fn generate_registration_new(
     })
 }
 
-pub(crate) fn ecs_filter_expression<'a>(iter: impl Iterator<Item=&'a Argument>) -> Option<TokenStream> {
-    let components = iter
-        .filter_map(|Argument(_, ty)| match ty {
-            ArgumentType::Ctx(_, _) => None,
-            ArgumentType::ComponentReference(it) => Some(it),
-            ArgumentType::Entity(_) => None,
-            ArgumentType::ComponentMutableWrapper(it) => Some(it),
-        });
+pub(crate) fn ecs_filter_expression<'a>(
+    iter: impl Iterator<Item = &'a Argument>,
+) -> Option<TokenStream> {
+    let components = iter.filter_map(|Argument(_, ty)| match ty {
+        ArgumentType::Ctx(_, _) => None,
+        ArgumentType::ComponentReference(it) => Some(it),
+        ArgumentType::Entity(_) => None,
+        ArgumentType::ComponentMutableWrapper(it) => Some(it),
+    });
     let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
     Some(quote! {
         ::reactex_core::filter::filter_desc::ecs_filter!(#components)

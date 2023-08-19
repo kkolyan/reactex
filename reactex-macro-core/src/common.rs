@@ -19,11 +19,11 @@ use syn::Pat;
 use syn::PatIdent;
 use syn::PatType;
 use syn::PathArguments;
+use syn::Result;
 use syn::Stmt;
 use syn::Token;
 use syn::Type;
 use syn::TypePath;
-use syn::Result;
 
 pub struct ExprListParse {
     pub exprs: Punctuated<Expr, Token!(,)>,
@@ -271,7 +271,7 @@ pub fn generate_filter_vec(components: &Vec<Component>) -> Punctuated<TypePath, 
     filter_vec
 }
 
-pub(crate) fn aggregate_errors(mut errors: impl Iterator<Item=Error>) -> Result<()> {
+pub(crate) fn aggregate_errors(mut errors: impl Iterator<Item = Error>) -> Result<()> {
     if let Some(mut error) = errors.next() {
         error.extend(errors);
         return Err(error);
@@ -279,8 +279,7 @@ pub(crate) fn aggregate_errors(mut errors: impl Iterator<Item=Error>) -> Result<
     Ok(())
 }
 
-pub(crate) fn aggregate_results<T>(results: impl Iterator<Item=Result<T>>) -> Result<Vec<T>> {
-
+pub(crate) fn aggregate_results<T>(results: impl Iterator<Item = Result<T>>) -> Result<Vec<T>> {
     let mut oks = Vec::new();
     let mut errors = Vec::new();
 

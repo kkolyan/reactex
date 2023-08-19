@@ -134,7 +134,7 @@ fn system6(entity: Entity, _a: &A, _ctx: Ctx<SomeSignal>) {
 }
 
 struct D {
-    x: i32
+    x: i32,
 }
 
 #[enable_queries]
