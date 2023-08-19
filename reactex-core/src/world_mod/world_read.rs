@@ -11,20 +11,14 @@ use log::trace;
 use std::ops::Deref;
 
 impl StableWorld {
-    pub fn get_component<T: EcsComponent>(
-        &self,
-        entity: EntityKey,
-    ) -> WorldResult<Option<&T>> {
+    pub fn get_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<Option<&T>> {
         let entity = entity
             .validate(self.entity_storage.borrow().deref(), DenyUncommitted)?
             .index;
         Ok(self.get_component_no_validation(entity))
     }
 
-    fn get_component_no_validation<T: EcsComponent>(
-        &self,
-        entity: EntityIndex,
-    ) -> Option<&T> {
+    fn get_component_no_validation<T: EcsComponent>(&self, entity: EntityIndex) -> Option<&T> {
         let data = self
             .component_mappings
             .data_by_entity_by_type

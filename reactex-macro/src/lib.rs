@@ -28,6 +28,13 @@ pub fn query(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+pub fn enable_queries(attr: TokenStream, item: TokenStream) -> TokenStream {
+    reactex_macro_core::query_2::enable_queries(attr.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
 pub fn on_signal_global(attr: TokenStream, item: TokenStream) -> TokenStream {
     reactex_macro_core::on_signal::on_event(attr.into(), item.into(), EventType::OnSignalGlobal)
         .unwrap_or_else(syn::Error::into_compile_error)

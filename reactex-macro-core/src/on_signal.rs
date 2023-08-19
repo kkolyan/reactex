@@ -1,15 +1,10 @@
 use crate::common;
-use crate::common::extract_component_2;
-use crate::common::render_component_bindings;
 use crate::common::Argument;
 use crate::common::ArgumentType;
-use crate::common::Component;
-use crate::common::ComponentResult;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::*;
 use std::ops::Deref;
-use std::ops::Not;
 use syn::punctuated::*;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -59,7 +54,7 @@ fn analyze_user_function(attr: TokenStream, item: TokenStream) -> Result<UserFun
     let args_span = function.sig.span();
     let ident = function.sig.ident;
 
-    let args: Vec<_> = function
+    let args = function
         .sig
         .inputs
         .iter()
@@ -68,83 +63,69 @@ fn analyze_user_function(attr: TokenStream, item: TokenStream) -> Result<UserFun
                 it.span(),
                 "attribute is applicable only to top-level free functions",
             )),
-            FnArg::Typed(arg) => {
-                let arg_name = match arg.pat.deref() {
-                    Pat::Ident(it) => Pat::Ident(it.clone()),
-                    Pat::Wild(it) => Pat::Wild(it.clone()),
-                    it => return Err(Error::new(it.span(), "invalid argument name")),
-                };
-                let result = match arg.ty.deref() {
-                    Type::Path(it) => {
-                        let it = it.path.segments.last().unwrap();
-                        if it.ident == "Ctx" {
-                            let payload = extract_single_generic_argument_type(it)?;
-                            Ok(Argument(arg_name, ArgumentType::Ctx(it.span(), payload)))
-                        } else if it.ident == "Mut" {
-                            let component = extract_single_generic_argument_type(it)?;
-                            match component {
-                                None => Err(Error::new(
-                                    it.span(),
-                                    "exactly one generic argument expected here",
-                                )),
-                                Some(it) => Ok(Argument(
-                                    arg_name,
-                                    ArgumentType::ComponentMutableWrapper(it),
-                                )),
-                            }
-                        } else if it.ident == "Entity" {
-                            Ok(Argument(arg_name, ArgumentType::Entity(it.span())))
-                        } else {
-                            Err(Error::new(it.span(), "invalid argument type"))
-                        }
-                    }
-                    Type::Reference(it) => {
-                        if it.lifetime.is_some() {
-                            Err(Error::new(
-                                it.span(),
-                                "explicit lifetimes are not expected here",
-                            ))
-                        } else if it.mutability.is_some() {
-                            Err(Error::new(
-                                it.span(),
-                                "mutability is not allowed here. us Mut wrapper instead.",
-                            ))
-                        } else {
-                            Ok(Argument(
-                                arg_name,
-                                ArgumentType::ComponentReference(it.elem.deref().clone()),
-                            ))
-                        }
-                    }
-                    it => Err(Error::new(it.span(), "invalid argument type")),
-                };
-                result
-            }
-        })
-        .collect();
-
-    let mut ok_args = Vec::new();
-    let mut errors = Vec::new();
-
-    for arg in args {
-        match arg {
-            Ok(it) => ok_args.push(it),
-            Err(err) => errors.push(err),
-        }
-    }
-
-    let mut errors = errors.into_iter();
-    if let Some(mut error) = errors.next() {
-        error.extend(errors);
-        return Err(error);
-    }
+            FnArg::Typed(arg) => extract_argument(arg),
+        });
+    let args = common::aggregate_results(args)?;
 
     Ok(UserFunction {
         args_span,
         ident,
         ecs_module_var_path,
-        args: ok_args,
+        args,
     })
+}
+
+pub(crate) fn extract_argument(arg: &PatType) -> Result<Argument> {
+    let arg_name = match arg.pat.deref() {
+        Pat::Ident(it) => Pat::Ident(it.clone()),
+        Pat::Wild(it) => Pat::Wild(it.clone()),
+        it => return Err(Error::new(it.span(), "invalid argument name")),
+    };
+    let result = match arg.ty.deref() {
+        Type::Path(it) => {
+            let it = it.path.segments.last().unwrap();
+            if it.ident == "Ctx" {
+                let payload = extract_single_generic_argument_type(it)?;
+                Ok(Argument(arg_name, ArgumentType::Ctx(it.span(), payload)))
+            } else if it.ident == "Mut" {
+                let component = extract_single_generic_argument_type(it)?;
+                match component {
+                    None => Err(Error::new(
+                        it.span(),
+                        "exactly one generic argument expected here",
+                    )),
+                    Some(it) => Ok(Argument(
+                        arg_name,
+                        ArgumentType::ComponentMutableWrapper(it),
+                    )),
+                }
+            } else if it.ident == "Entity" {
+                Ok(Argument(arg_name, ArgumentType::Entity(it.span())))
+            } else {
+                Err(Error::new(it.span(), "invalid argument type"))
+            }
+        }
+        Type::Reference(it) => {
+            if it.lifetime.is_some() {
+                Err(Error::new(
+                    it.span(),
+                    "explicit lifetimes are not expected here",
+                ))
+            } else if it.mutability.is_some() {
+                Err(Error::new(
+                    it.span(),
+                    "mutability is not allowed here. us Mut wrapper instead.",
+                ))
+            } else {
+                Ok(Argument(
+                    arg_name,
+                    ArgumentType::ComponentReference(it.elem.deref().clone()),
+                ))
+            }
+        }
+        it => Err(Error::new(it.span(), "invalid argument type")),
+    };
+    result
 }
 
 fn extract_single_generic_argument_type(it: &PathSegment) -> Result<Option<Type>> {
@@ -198,19 +179,7 @@ fn generate_registration_new(
 
     let filter_key = match event_type {
         EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {
-            let components = user_function
-                .args
-                .iter()
-                .filter_map(|Argument(_, ty)| match ty {
-                    ArgumentType::Ctx(_, _) => None,
-                    ArgumentType::ComponentReference(it) => Some(it),
-                    ArgumentType::Entity(_) => None,
-                    ArgumentType::ComponentMutableWrapper(it) => Some(it),
-                });
-            let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
-            Some(quote! {
-                ::reactex_core::filter::filter_desc::ecs_filter!(#components)
-            })
+            ecs_filter_expression(user_function.args.iter())
         }
         EventType::OnSignalGlobal => None,
     };
@@ -308,7 +277,7 @@ fn generate_registration_new(
                     return Err(Error::new(
                         user_function.args_span,
                         "exactly 1 Ctx argument expected for this event",
-                    ))
+                    ));
                 }
                 Some((span, signal_type)) => match signal_type {
                     None => return Err(Error::new(
@@ -399,5 +368,19 @@ fn generate_registration_new(
             }
             #ecs_module_path.write().unwrap().add_configurator(configure);
         }
+    })
+}
+
+pub(crate) fn ecs_filter_expression<'a>(iter: impl Iterator<Item=&'a Argument>) -> Option<TokenStream> {
+    let components = iter
+        .filter_map(|Argument(_, ty)| match ty {
+            ArgumentType::Ctx(_, _) => None,
+            ArgumentType::ComponentReference(it) => Some(it),
+            ArgumentType::Entity(_) => None,
+            ArgumentType::ComponentMutableWrapper(it) => Some(it),
+        });
+    let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
+    Some(quote! {
+        ::reactex_core::filter::filter_desc::ecs_filter!(#components)
     })
 }

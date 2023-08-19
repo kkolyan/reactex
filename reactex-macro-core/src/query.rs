@@ -5,10 +5,12 @@ use crate::common::render_component_bindings;
 use crate::common::Component;
 use crate::common::CtxClosureParse;
 use crate::common::ExprListParse;
+use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::ops::Deref;
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::*;
 
 pub fn query_fn1(input: TokenStream) -> Result<TokenStream> {
@@ -28,12 +30,10 @@ pub fn query_fn(input: TokenStream) -> Result<TokenStream> {
     query_internal(args)
 }
 
-pub fn query_attr(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
-    let attr = parse2(attr);
-    let item: Result<Stmt> = parse2(item);
-    let args = CtxClosureParse::parse(attr?, item?);
-
-    query_internal(args)
+pub fn query_attr(_attr: TokenStream, _item: TokenStream) -> Result<TokenStream> {
+    Ok(quote! {
+        compile_error!("place `#[enable_queries]` at the enclosing top-level function to enable queries");
+    })
 }
 
 fn query_internal(args: Result<CtxClosureParse>) -> Result<TokenStream> {

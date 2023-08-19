@@ -89,10 +89,7 @@ impl World {
 
 // work with components
 impl World {
-    pub fn get_component<T: EcsComponent>(
-        &self,
-        entity: EntityKey,
-    ) -> WorldResult<Option<&T>> {
+    pub fn get_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<Option<&T>> {
         self.stable.get_component::<T>(entity)
     }
     pub fn has_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<bool> {

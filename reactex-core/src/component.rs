@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub trait EcsComponent : 'static {
+pub trait EcsComponent: 'static {
     const INDEX: u16;
     const NAME: &'static str;
 

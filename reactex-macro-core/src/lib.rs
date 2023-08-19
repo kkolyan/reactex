@@ -8,6 +8,7 @@ pub mod components;
 pub mod lab_helper;
 pub mod on_signal;
 pub mod query;
+pub mod query_2;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

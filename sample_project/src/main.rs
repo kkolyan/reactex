@@ -1,4 +1,5 @@
 #![allow(clippy::explicit_auto_deref)]
+#![feature(proc_macro_hygiene)]
 
 use reactex_core::entity::EntityKey;
 use reactex_core::facade_2_0::ecs_module;
@@ -7,10 +8,12 @@ use reactex_core::facade_2_0::EcsContainer;
 use reactex_core::facade_2_0::Entity;
 use reactex_core::facade_2_0::Mut;
 use reactex_core::facade_2_0::UncommittedEntity;
+use reactex_core::reactex_macro::enable_queries;
 use reactex_core::reactex_macro::on_appear;
 use reactex_core::reactex_macro::on_disappear;
 use reactex_core::reactex_macro::on_signal;
 use reactex_core::reactex_macro::on_signal_global;
+use reactex_core::reactex_macro::query;
 use reactex_core::reactex_macro::EcsComponent;
 
 // all ECS systems are bound to some module ID. this ID could be used to register all associated
@@ -130,6 +133,11 @@ fn system6(entity: Entity, _a: &A, _ctx: Ctx<SomeSignal>) {
     // argument order doesn't matter
 }
 
+struct D {
+    x: i32
+}
+
+#[enable_queries]
 fn main() {
     let mut ecs = EcsContainer::create()
         // register your module (or N of them)
@@ -146,5 +154,19 @@ fn main() {
     ecs.execute_once(|ctx| {
         // orchestrate application using signals
         ctx.send_signal(SomeSignal);
+    });
+
+    ecs.execute_once(|ctx| {
+        let mut d = D { x: 0 };
+
+        #[query(ctx)]
+        |a: &A, c: &C, entity: Entity| {
+            d.x = c.value * 4;
+        };
+
+        #[query(ctx)]
+        |c: Mut<C>| {
+            c.modify(move |c| c.value = d.x * 10);
+        };
     });
 }

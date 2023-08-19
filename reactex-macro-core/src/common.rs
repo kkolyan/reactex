@@ -23,13 +23,14 @@ use syn::Stmt;
 use syn::Token;
 use syn::Type;
 use syn::TypePath;
+use syn::Result;
 
 pub struct ExprListParse {
     pub exprs: Punctuated<Expr, Token!(,)>,
 }
 
 impl Parse for ExprListParse {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream) -> Result<Self> {
         Ok(ExprListParse {
             exprs: Punctuated::<Expr, Token!(,)>::parse_separated_nonempty(input)?,
         })
@@ -42,7 +43,7 @@ pub struct CtxClosureParse {
 }
 
 impl CtxClosureParse {
-    pub fn parse_from_list(args: Punctuated<Expr, Token!(,)>) -> syn::Result<Self> {
+    pub fn parse_from_list(args: Punctuated<Expr, Token!(,)>) -> Result<Self> {
         let args: Vec<_> = args.into_iter().collect();
         if args.len() > 2 {
             return Err(Error::new(Span::call_site(), "two arguments expected"));
@@ -56,7 +57,7 @@ impl CtxClosureParse {
         Self::parse(ctx, Stmt::Expr(closure, None))
     }
 
-    pub fn parse(ctx: Expr, closure: Stmt) -> Result<CtxClosureParse, Error> {
+    pub fn parse(ctx: Expr, closure: Stmt) -> Result<CtxClosureParse> {
         let ctx = if let Expr::Path(ctx) = ctx {
             if ctx.path.segments.len() != 1 {
                 Err(1)
@@ -268,4 +269,33 @@ pub fn generate_filter_vec(components: &Vec<Component>) -> Punctuated<TypePath, 
         filter_vec.push(component.ty.clone());
     }
     filter_vec
+}
+
+pub(crate) fn aggregate_errors(mut errors: impl Iterator<Item=Error>) -> Result<()> {
+    if let Some(mut error) = errors.next() {
+        error.extend(errors);
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub(crate) fn aggregate_results<T>(results: impl Iterator<Item=Result<T>>) -> Result<Vec<T>> {
+
+    let mut oks = Vec::new();
+    let mut errors = Vec::new();
+
+    for arg in results {
+        match arg {
+            Ok(it) => oks.push(it),
+            Err(err) => errors.push(err),
+        }
+    }
+
+    let mut errors = errors.into_iter();
+    if let Some(mut error) = errors.next() {
+        error.extend(errors);
+        return Err(error);
+    }
+
+    Ok(oks)
 }

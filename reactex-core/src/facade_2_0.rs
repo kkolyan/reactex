@@ -90,6 +90,10 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
         let volatile = &mut self.volatile.borrow_mut();
         volatile.signal(signal);
     }
+
+    pub fn query(&self, filter: FilterDesc, callback: impl FnMut(EntityKey)) {
+        self.stable.query(filter, callback);
+    }
 }
 
 impl EntityKey {
@@ -155,10 +159,7 @@ impl<'a> Entity<'a> {
             .unwrap()
     }
 
-    pub fn modify<TComponent: EcsComponent>(
-        &self,
-        change: impl FnOnce(&mut TComponent) + 'static,
-    ) {
+    pub fn modify<TComponent: EcsComponent>(&self, change: impl FnOnce(&mut TComponent) + 'static) {
         let entity_storage = self.stable.entity_storage.borrow();
         let volatile_world = &mut self.volatile.borrow_mut();
         volatile_world
@@ -260,4 +261,5 @@ macro_rules! __ecs_module {
 }
 
 pub use crate::__ecs_module as ecs_module;
+use crate::filter::filter_desc::FilterDesc;
 use crate::world_mod::entity_storage::ValidateUncommitted;
