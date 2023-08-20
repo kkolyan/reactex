@@ -70,21 +70,7 @@ fn system1(ctx: Ctx<SomeSignal>) {
     ctx.send_signal(AnotherSignal)
 }
 
-#[::reactex_core::ctor::ctor]
-fn register_system2() {
-    fn configure(world: &mut ::reactex_core::world_mod::world::ConfigurableWorld) {
-        fn wrapper(signal: &AnotherSignal, entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
-            let volatile = std::cell::RefCell::new(volatile);
-            let __ctx__ = Ctx::new(signal, stable, &volatile);
-            let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
-            let _ctx = __ctx__;
-            let _a = __entity__.get::<A>().unwrap();
-            system2(_ctx, _a );
-        }
-        world.add_entity_signal_handler::<AnotherSignal>(stringify!(system2), ::reactex_core::filter::filter_desc::ecs_filter!(A), wrapper);
-    }
-    DEMO.write().unwrap().add_configurator(configure);
-}
+#[on_signal(DEMO)]
 fn system2(_ctx: Ctx<AnotherSignal>, _a: &A) {
     // invoked once per entity with A component. component is read-only..
 }

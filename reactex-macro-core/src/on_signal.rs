@@ -312,7 +312,7 @@ fn generate_registration_new(
                 fn wrapper(signal: &#signal_type, entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(signal, stable, &volatile);
-                    let __entity__ = __ctx__.get_entity(entity).unwrap();
+                    let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
                     #argument_mappings
                     #function_name(#function_args);
                 }
@@ -335,7 +335,7 @@ fn generate_registration_new(
                 fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(&(), stable, &volatile);
-                    let __entity__ = __ctx__.get_entity(entity).unwrap();
+                    let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
                     #argument_mappings
                     #function_name(#function_args);
                 }
@@ -347,7 +347,7 @@ fn generate_registration_new(
                 fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(&(), stable, &volatile);
-                    let __entity__ = __ctx__.get_entity(entity).unwrap();
+                    let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
                     #argument_mappings
                     #function_name(#function_args);
                 }
