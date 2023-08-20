@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::component::ComponentType;
 use crate::component::EcsComponent;
 use crate::filter::FilterDesc;
@@ -18,6 +19,7 @@ use std::collections::HashSet;
 use std::mem;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use crate::Ctx;
 
 pub(crate) static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
 
@@ -185,7 +187,12 @@ impl World {
                             trace!("invoke event {:?} for {}", event_type, entity);
                             let new_cause = Cause::consequence(handler.name, causes);
                             let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
-                            (handler.callback)(entity.export(), stable, volatile);
+                            let ctx = Ctx {
+                                signal: &(),
+                                stable,
+                                volatile: &RefCell::new(volatile),
+                            };
+                            (handler.callback)(ctx, entity.export());
                             volatile.current_cause = prev_cause;
                         }
                     }

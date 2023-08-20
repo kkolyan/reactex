@@ -1,4 +1,5 @@
 use crate::component::EcsComponent;
+use crate::Ctx;
 use crate::entity_key::EntityKey;
 use crate::filter::FilterDesc;
 use crate::internal::signal_sender::SignalSender;
@@ -23,7 +24,7 @@ impl ConfigurableWorld {
     pub fn add_global_signal_handler<T: 'static>(
         &mut self,
         name: &'static str,
-        callback: impl Fn(&T, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx<T>) + 'static,
     ) {
         self.fetus.add_global_signal_handler(name, callback)
     }
@@ -32,7 +33,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter: FilterDesc,
-        callback: impl Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx<T>, EntityKey) + 'static,
     ) {
         self.fetus.add_entity_signal_handler(name, filter, callback)
     }
@@ -41,7 +42,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx, EntityKey) + 'static,
     ) {
         self.fetus.add_disappear_handler(name, filter_key, callback)
     }
@@ -50,7 +51,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx, EntityKey) + 'static,
     ) {
         self.fetus.add_appear_handler(name, filter_key, callback)
     }

@@ -53,27 +53,3 @@ impl World {
             .insert(filter);
     }
 }
-
-impl StableWorld {
-
-    pub fn get_component<T: EcsComponent>(
-        &self,
-        entity: EntityKey,
-    ) -> WorldResult<Option<&T>> {
-        let entity = entity
-            .validate(self.entity_storage.borrow().deref(), DenyUncommitted)?
-            .index;
-        Ok(self.get_component_no_validation(entity))
-    }
-}
-
-impl VolatileWorld {
-    pub fn signal<T: 'static>(&mut self, payload: T) {
-        let mut sender = SignalSender {
-            signal_queue: &mut self.signal_queue,
-            current_cause: &self.current_cause,
-            signal_storage: &mut self.signal_storage,
-        };
-        sender.signal(payload);
-    }
-}

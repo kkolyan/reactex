@@ -22,6 +22,7 @@ use crate::world_result::WorldError;
 use crate::world_result::WorldResult;
 use log::trace;
 use std::collections::HashMap;
+use crate::internal::signal_sender::SignalSender;
 
 pub struct VolatileWorld {
     pub(crate) entity_component_index: EntityComponentIndex,
@@ -134,9 +135,16 @@ impl VolatileWorld {
         }
         Ok(())
     }
-}
 
-impl VolatileWorld {
+    pub(crate) fn signal<T: 'static>(&mut self, payload: T) {
+        let mut sender = SignalSender {
+            signal_queue: &mut self.signal_queue,
+            current_cause: &self.current_cause,
+            signal_storage: &mut self.signal_storage,
+        };
+        sender.signal(payload);
+    }
+
     pub(crate) fn create_entity(
         &mut self,
         entity_storage: &mut EntityStorage,

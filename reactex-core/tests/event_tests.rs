@@ -29,7 +29,7 @@ fn appear_event_available_after_component_creation() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_appear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         })
     }
@@ -46,7 +46,7 @@ fn appear_event_not_available_before_commit() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_appear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -62,7 +62,7 @@ fn entity_disappear_available_after_component_removal() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -83,7 +83,7 @@ fn entity_disappear_doesnt_invoke_twice() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -104,7 +104,7 @@ fn entity_disappear_twice() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -137,7 +137,7 @@ fn entity_disappear_not_available_before_commit() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -155,7 +155,7 @@ fn entity_disappear_not_available_before_removal() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -172,7 +172,7 @@ fn empty_filter_entity_appear_after_entity_created() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(), move |entity, _, _| {
+        world.add_appear_handler("test", ecs_filter!(), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -188,7 +188,7 @@ fn empty_filter_entity_disappear_after_entity_destroyed() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -206,7 +206,7 @@ fn empty_filter_entity_appear_not_available_after_entity_created_not_committed()
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(), move |entity, _, _| {
+        world.add_disappear_handler("test", ecs_filter!(), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -221,7 +221,7 @@ fn abappear_event_for_ab() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_appear_handler("test", ecs_filter!(A, B), move |entity, _, _| {
+        world.add_appear_handler("test", ecs_filter!(A, B), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -239,9 +239,9 @@ fn components_available_during_disappear_event() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(C, D), move |entity, stable, _| {
-            assert_eq!(stable.get_component::<C>(entity).unwrap().unwrap().value, 7);
-            assert_eq!(stable.get_component::<D>(entity).unwrap().unwrap().value, 8);
+        world.add_disappear_handler("test", ecs_filter!(C, D), move |ctx, entity| {
+            assert_eq!(ctx.get_entity(entity).unwrap().get::<C>().unwrap().value, 7);
+            assert_eq!(ctx.get_entity(entity).unwrap().get::<D>().unwrap().value, 8);
             matched.borrow_mut().push(entity)
         });
     }
@@ -261,7 +261,7 @@ fn removed_component_doesnt_fire_similar_disappears() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A, B), move |entity, stable, _| {
+        world.add_disappear_handler("test", ecs_filter!(A, B), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }
@@ -280,7 +280,7 @@ fn destroyed_entity_doesnt_fire_similar_disappears() {
     let mut world = ConfigurableWorld::new();
     {
         let matched = matched.clone();
-        world.add_disappear_handler("test", ecs_filter!(A, B), move |entity, stable, _| {
+        world.add_disappear_handler("test", ecs_filter!(A, B), move |ctx, entity| {
             matched.borrow_mut().push(entity)
         });
     }

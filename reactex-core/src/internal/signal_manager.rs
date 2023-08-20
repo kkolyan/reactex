@@ -1,8 +1,10 @@
 use crate::entity_key::EntityKey;
 use crate::internal::cause::Cause;
 use std::any::Any;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
+use crate::Ctx;
 
 use crate::internal::filter_manager::FilterManager;
 use crate::internal::filter_manager::InternalFilterKey;
@@ -68,7 +70,12 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
         for handler in &self.global_handlers {
             let new_cause = Cause::consequence(handler.name, [volatile.current_cause.clone()]);
             let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
-            (handler.callback)(&payload, stable, volatile);
+            let ctx = Ctx {
+                signal: &payload,
+                stable,
+                volatile: &RefCell::new(volatile),
+            };
+            (handler.callback)(ctx);
             volatile.current_cause = prev_cause;
         }
 
@@ -84,7 +91,12 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
                     let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
 
                     for entity in matched_entities {
-                        (handler.callback)(&payload, entity.export(), stable, volatile);
+                        let ctx = Ctx {
+                            signal: &payload,
+                            stable,
+                            volatile: &RefCell::new(volatile),
+                        };
+                        (handler.callback)(ctx, entity.export());
                     }
 
                     volatile.current_cause = prev_cause;
@@ -98,5 +110,5 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
     }
 }
 
-pub(crate) type GlobalSignalCallback<T> = dyn Fn(&T, &StableWorld, &mut VolatileWorld);
-pub(crate) type EntitySignalCallback<T> = dyn Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld);
+pub(crate) type GlobalSignalCallback<T> = dyn Fn(Ctx<T>);
+pub(crate) type EntitySignalCallback<T> = dyn Fn(Ctx<T>, EntityKey);

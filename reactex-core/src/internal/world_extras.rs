@@ -2,14 +2,13 @@ use crate::entity_key::EntityKey;
 use crate::internal::cause::Cause;
 use crate::internal::component_pool_manager::TempComponentDataKey;
 use crate::internal::signal_storage::SignalDataKey;
-use crate::internal::world_stable::StableWorld;
-use crate::internal::world_volatile::VolatileWorld;
 use crate::utils::opt_tiny_vec::OptTinyVec;
 use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use crate::Ctx;
 
 #[derive(Default)]
 pub(crate) struct DeleteQueue<TKey> {
@@ -33,7 +32,7 @@ pub(crate) struct ComponentAdd {
 
 pub(crate) struct EventHandler {
     pub(crate) name: &'static str,
-    pub(crate) callback: Box<dyn Fn(EntityKey, &StableWorld, &mut VolatileWorld)>,
+    pub(crate) callback: Box<dyn Fn(Ctx, EntityKey)>,
 }
 
 pub(crate) struct Signal {

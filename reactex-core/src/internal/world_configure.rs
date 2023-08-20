@@ -11,6 +11,7 @@ use crate::utils::pools::SpecificPool;
 use log::trace;
 use std::any::TypeId;
 use std::ops::Deref;
+use crate::Ctx;
 
 pub struct ConfigurableWorld {
     pub(crate) fetus: World,
@@ -20,7 +21,7 @@ impl World {
     pub(crate) fn add_global_signal_handler<T: 'static>(
         &mut self,
         name: &'static str,
-        callback: impl Fn(&T, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx<T>) + 'static,
     ) {
         trace!(
             "register global signal handler '{}' for {}",
@@ -45,7 +46,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter: FilterDesc,
-        callback: impl Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx<T>, EntityKey) + 'static,
     ) {
         trace!(
             "register signal handler '{}' for {} and {}",
@@ -79,7 +80,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx, EntityKey) + 'static,
     ) {
         let filter = self.stable.filter_manager.get_filter(filter_key);
         filter.track_disappear_events();
@@ -98,7 +99,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
+        callback: impl Fn(Ctx, EntityKey) + 'static,
     ) {
         let filter = self.stable.filter_manager.get_filter(filter_key);
         filter.track_appear_events();
