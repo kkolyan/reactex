@@ -339,13 +339,9 @@ fn generate_registration_new(
         EventType::OnSignal => {
             quote! {
                 fn wrapper(
-                    signal: &#signal_type,
+                    __ctx__: reactex_core::Ctx<#signal_type>,
                     entity: reactex_core::EntityKey,
-                    stable: &reactex_core::StableWorld,
-                    volatile: &mut reactex_core::VolatileWorld
                 ) {
-                    let volatile = std::cell::RefCell::new(volatile);
-                    let __ctx__ = Ctx::new(signal, stable, &volatile);
                     let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
                     #argument_mappings
                     #function_name(#function_args);
@@ -356,12 +352,8 @@ fn generate_registration_new(
         EventType::OnSignalGlobal => {
             quote! {
                 fn wrapper(
-                    signal: &#signal_type,
-                    stable: &reactex_core::StableWorld,
-                    volatile: &mut reactex_core::VolatileWorld
+                    __ctx__: reactex_core::Ctx<#signal_type>,
                 ) {
-                    let volatile = std::cell::RefCell::new(volatile);
-                    let __ctx__ = Ctx::new(signal, stable, &volatile);
                     #argument_mappings
                     #function_name(#function_args);
                 }
@@ -371,12 +363,9 @@ fn generate_registration_new(
         EventType::OnAppear => {
             quote! {
                 fn wrapper(
+                    __ctx__: reactex_core::Ctx,
                     entity: reactex_core::EntityKey,
-                    stable: &reactex_core::StableWorld,
-                    volatile: &mut reactex_core::VolatileWorld
                 ) {
-                    let volatile = std::cell::RefCell::new(volatile);
-                    let __ctx__ = Ctx::new(&(), stable, &volatile);
                     let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
                     #argument_mappings
                     #function_name(#function_args);
@@ -387,12 +376,9 @@ fn generate_registration_new(
         EventType::OnDisappear => {
             quote! {
                 fn wrapper(
+                    __ctx__: reactex_core::Ctx,
                     entity: reactex_core::EntityKey,
-                    stable: &reactex_core::StableWorld,
-                    volatile: &mut reactex_core::VolatileWorld
                 ) {
-                    let volatile = std::cell::RefCell::new(volatile);
-                    let __ctx__ = Ctx::new(&(), stable, &volatile);
                     let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
                     #argument_mappings
                     #function_name(#function_args);
