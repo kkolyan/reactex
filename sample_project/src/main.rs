@@ -150,6 +150,10 @@ fn main() {
 
     // do some actions on the top level (outside of event callbacks)
     ecs.execute_once(|ctx| {
+
+        // the code inside closure passed to `execute_once` has the same rules, abilities and limitations
+        // as the code inside event handlers
+
         let entity = ctx.create_entity();
         entity.add(A {});
     });
@@ -168,7 +172,7 @@ fn main() {
         // note that query reads only committed changes.
 
         #[query(ctx)]
-        |a: &A, c: &C, entity: Entity| {
+        |_a: &A, c: &C, _entity: Entity| {
             d.x = c.value * 4;
         };
 
