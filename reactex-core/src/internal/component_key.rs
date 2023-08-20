@@ -1,5 +1,4 @@
 use crate::component::ComponentType;
-use crate::component::EcsComponent;
 use crate::internal::world_extras::InternalEntityKey;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -17,10 +16,10 @@ impl Display for ComponentKey {
 }
 
 impl ComponentKey {
-    pub(crate) fn of<T: EcsComponent>(entity: InternalEntityKey) -> ComponentKey {
+    pub(crate) fn new(entity: InternalEntityKey, component_type: ComponentType) -> ComponentKey {
         ComponentKey {
             entity,
-            component_type: T::get_component_type(),
+            component_type,
         }
     }
 }

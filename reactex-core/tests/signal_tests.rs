@@ -1,12 +1,13 @@
 #![allow(non_snake_case)]
 
-use reactex_core::ecs_filter;
+use reactex_core::{ecs_filter, EcsContainer};
 use reactex_core::ConfigurableWorld;
 use reactex_macro::EcsComponent;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
+use ctor::ctor;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}
@@ -24,6 +25,12 @@ impl Signal {
 
 #[derive(Debug, Copy, Clone)]
 struct AnotherSignal();
+
+#[ctor]
+fn init_logging() {
+    // let _ = log4rs::init_file("tests/log4rs.test.yaml", Default::default());
+    println!("test started");
+}
 
 #[test]
 fn GlobalSignalReceived() {
@@ -180,4 +187,54 @@ fn NotEntityMatchedAndSignalReceived() {
 
     assert_eq!(received_signals.borrow().deref(), &vec! {});
     assert_eq!(matched_entities.borrow().deref(), &vec! {});
+}
+
+#[test]
+fn cancelled_entity_removed_from_filter() {
+    let signals = Rc::new(Cell::new(0));
+    let mut ecs = EcsContainer::create()
+        .configure_in_test(|world| {
+            let signals = signals.clone();
+            world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |_, _| {
+                signals.set(signals.get() + 1);
+            })
+        })
+        .seal();
+    ecs.execute_once(|ctx| {
+        let e1 = ctx.create_entity();
+        e1.add(A {});
+        e1.destroy();
+    });
+    ecs.execute_once(|ctx| {
+        ctx.send_signal(Signal { Value: 0 });
+    });
+
+    assert_eq!(0, signals.get());
+}
+
+#[test]
+fn destroyed_entity_removed_from_filter() {
+    let signals = Rc::new(Cell::new(0));
+    let mut ecs = EcsContainer::create()
+        .configure_in_test(|world| {
+            let signals = signals.clone();
+            world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |_, _| {
+                signals.set(signals.get() + 1);
+            })
+        })
+        .seal();
+    let e1 = ecs.execute_once(|ctx| {
+        let e1 = ctx.create_entity();
+        e1.add(A {});
+        e1.key()
+    });
+    ecs.execute_once(|ctx| {
+        let e1 = ctx.get_entity(e1).unwrap();
+        e1.destroy();
+    });
+    ecs.execute_once(|ctx| {
+        ctx.send_signal(Signal { Value: 0 });
+    });
+
+    assert_eq!(0, signals.get());
 }

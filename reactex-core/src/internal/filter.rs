@@ -17,6 +17,14 @@ pub(crate) struct Filter {
 }
 
 impl Filter {
+    pub(crate) fn on_entity_destroyed(&mut self, entity: InternalEntityKey) {
+        if let Some(matched_entities) = &mut self.matched_entities {
+            matched_entities.remove(&entity);
+        }
+    }
+}
+
+impl Filter {
     pub(crate) fn track_matched_entities(
         &mut self,
         entity_storage: &EntityStorage,

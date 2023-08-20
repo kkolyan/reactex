@@ -65,7 +65,7 @@ impl VolatileWorld {
         let entity = entity.validate(entity_storage, DenyUncommitted)?;
 
         self.components_to_modify
-            .entry(ComponentKey::of::<T>(entity))
+            .entry(ComponentKey::new(entity, T::get_component_type()))
             .or_default()
             .push(ComponentModify {
                 callback: Box::new(move |state| {
@@ -82,7 +82,7 @@ impl VolatileWorld {
         component: T,
         entity_storage: &EntityStorage,
     ) -> WorldResult {
-        trace!("add component {}<{}>", entity, T::NAME);
+        trace!("user requested to add component {}<{}>", entity, T::NAME);
 
         let entity = entity.validate(entity_storage, AllowUncommitted)?;
 
@@ -95,7 +95,7 @@ impl VolatileWorld {
             .add(component);
 
         self.components_to_add
-            .entry(ComponentKey::of::<T>(entity))
+            .entry(ComponentKey::new(entity, T::get_component_type()))
             .or_default()
             .push(ComponentAdd {
                 data,
@@ -117,7 +117,7 @@ impl VolatileWorld {
 
         let removed_uncommitted = self
             .components_to_add
-            .remove(&ComponentKey::of::<T>(entity))
+            .remove(&ComponentKey::new(entity, T::get_component_type()))
             .is_some();
         if !removed_uncommitted {
             if !component_mappings
@@ -127,7 +127,7 @@ impl VolatileWorld {
             }
             self.components_to_delete
                 .before_disappear
-                .entry(ComponentKey::of::<T>(entity))
+                .entry(ComponentKey::new(entity, T::get_component_type()))
                 .or_default()
                 .push(self.current_cause.clone());
         }
@@ -147,7 +147,7 @@ impl VolatileWorld {
         &mut self,
         entity_storage: &mut EntityStorage,
     ) -> InternalEntityKey {
-        trace!("create entity");
+        trace!("user requested create entity");
         let entity = entity_storage.new_entity();
         self.entity_component_index.add_entity(entity.index);
         self.entities_to_commit
@@ -163,12 +163,16 @@ impl VolatileWorld {
         entity: EntityKey,
         entity_storage: &mut EntityStorage,
     ) -> WorldResult {
-        trace!("destroy entity: {}", entity);
+        trace!("user requested destroy entity: {}", entity);
         let entity = entity.validate(entity_storage, AllowUncommitted)?;
         if entity_storage.is_not_committed(entity.index) {
             // component data is not deleted here, because it will be deleted at once later
 
+            // but we still need to delete component tasks right here
+            self.components_to_add.retain(|it, _| it.entity != entity);
+
             self.entities_to_commit.remove(&entity);
+
             entity_storage.delete_entity_data(entity.index);
         } else {
             self.entities_to_destroy

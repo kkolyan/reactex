@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::marker::PhantomData;
 
 pub trait TiVecKey {
@@ -47,5 +48,13 @@ impl<K, V> TiVec<K, V> {
         let key = K::from_index(self.inner.len());
         self.inner.push(f(&key));
         key
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&V> {
+        self.inner.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut V> {
+        self.inner.iter_mut()
     }
 }

@@ -33,7 +33,7 @@ struct NotCopy<T> {
 
 #[ctor]
 fn init_logging() {
-    log4rs::init_file("tests/log4rs.test.yaml", Default::default()).unwrap();
+    // let _ = log4rs::init_file("tests/log4rs.test.yaml", Default::default());
     println!("test started");
 }
 

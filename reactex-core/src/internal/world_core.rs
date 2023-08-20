@@ -92,6 +92,7 @@ impl World {
 
     pub(crate) fn flush_component_addition(&mut self) {
         for (component_key, versions) in mem::take(&mut self.volatile.components_to_add) {
+            trace!("flushing addition of component {}", component_key);
             let mut versions = versions.into_iter();
 
             let chosen_version = versions.next().unwrap();

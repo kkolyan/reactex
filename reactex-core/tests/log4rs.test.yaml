@@ -1,10 +1,13 @@
 appenders:
   stdout:
     kind: console
+    encoder:
+      # https://docs.rs/log4rs/0.11.0/log4rs/encode/pattern/index.html#formatters
+      pattern: "{d(%H:%M:%S%.3f)} | {({l}):5.5} — {m}{n}"
 root:
   level: info
   appenders:
     - stdout
 loggers:
-  reactex-core:
+  reactex_core:
     level: trace
