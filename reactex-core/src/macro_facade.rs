@@ -6,12 +6,9 @@ use crate::internal::world_core::COMPONENT_NAMES;
 use crate::internal::world_core::COMPONENT_TYPE_REGISTRATIONS;
 use crate::internal::world_core::QUERIES;
 use crate::utils::pool_pump::SpecificPoolPump;
-use crate::{EntityKey, StableWorld, VolatileWorld, World, WorldResult};
+use crate::World;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ops::Deref;
-use crate::internal::entity_storage::ValidateUncommitted::DenyUncommitted;
-use crate::internal::signal_sender::SignalSender;
 
 impl World {
     pub fn register_component<T: EcsComponent>(&mut self) {

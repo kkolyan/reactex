@@ -1,17 +1,19 @@
 use crate::component::EcsComponent;
-use crate::Ctx;
 use crate::entity_key::EntityKey;
 use crate::filter::FilterDesc;
-use crate::internal::signal_sender::SignalSender;
 use crate::internal::world_configure::ConfigurableWorld;
 use crate::internal::world_core::World;
 use crate::internal::world_pipeline::execute_all_internal;
-use crate::internal::world_stable::StableWorld;
-use crate::internal::world_volatile::VolatileWorld;
 use crate::world_result::WorldResult;
+use crate::Ctx;
 
 impl ConfigurableWorld {
-    pub fn new() -> Self {
+    // I'm just too lazy to rewrite all tests to user API
+    pub fn create_for_test() -> ConfigurableWorld {
+        ConfigurableWorld::new()
+    }
+
+    pub(crate) fn new() -> Self {
         Self {
             fetus: World::new(),
         }

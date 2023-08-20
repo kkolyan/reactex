@@ -12,8 +12,8 @@ pub(crate) mod filter;
 pub(crate) mod internal;
 pub(crate) mod macro_facade;
 pub(crate) mod module;
+pub(crate) mod test_facade;
 pub(crate) mod utils;
-pub(crate) mod world_facade;
 pub(crate) mod world_result;
 
 pub use ctor;

@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use ctor::ctor;
-use reactex_core::ConfigurableWorld;
 use reactex_core::ComponentError;
+use reactex_core::ConfigurableWorld;
 use reactex_core::EntityError;
 use reactex_core::World;
 use reactex_core::WorldError;
@@ -47,7 +47,7 @@ fn entity_exists_immediately() {
 }
 
 fn create_world() -> World {
-    let mut world = ConfigurableWorld::new().seal();
+    let mut world = ConfigurableWorld::create_for_test().seal();
 
     // just noise to avoid false positives due to zero indexes or absence of interference
 

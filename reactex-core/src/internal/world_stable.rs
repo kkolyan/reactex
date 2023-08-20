@@ -96,7 +96,10 @@ impl StableWorld {
         Ok(self.get_component_no_validation(entity))
     }
 
-    pub(crate) fn get_component_no_validation<T: EcsComponent>(&self, entity: EntityIndex) -> Option<&T> {
+    pub(crate) fn get_component_no_validation<T: EcsComponent>(
+        &self,
+        entity: EntityIndex,
+    ) -> Option<&T> {
         let data = self
             .component_mappings
             .data_by_entity_by_type

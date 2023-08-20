@@ -10,6 +10,7 @@ use crate::internal::entity_storage::EntityStorage;
 use crate::internal::entity_storage::ValidateUncommitted::AllowUncommitted;
 use crate::internal::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::internal::signal_queue::SignalQueue;
+use crate::internal::signal_sender::SignalSender;
 use crate::internal::signal_storage::SignalStorage;
 use crate::internal::world_extras::ComponentAdd;
 use crate::internal::world_extras::ComponentModify;
@@ -22,7 +23,6 @@ use crate::world_result::WorldError;
 use crate::world_result::WorldResult;
 use log::trace;
 use std::collections::HashMap;
-use crate::internal::signal_sender::SignalSender;
 
 pub struct VolatileWorld {
     pub(crate) entity_component_index: EntityComponentIndex,

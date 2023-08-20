@@ -26,7 +26,7 @@ struct D {
 #[test]
 fn appear_event_available_after_component_creation() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -43,7 +43,7 @@ fn appear_event_available_after_component_creation() {
 #[test]
 fn appear_event_not_available_before_commit() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -59,7 +59,7 @@ fn appear_event_not_available_before_commit() {
 #[test]
 fn entity_disappear_available_after_component_removal() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -80,7 +80,7 @@ fn entity_disappear_available_after_component_removal() {
 #[test]
 fn entity_disappear_doesnt_invoke_twice() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -101,7 +101,7 @@ fn entity_disappear_doesnt_invoke_twice() {
 #[test]
 fn entity_disappear_twice() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -134,7 +134,7 @@ fn entity_disappear_twice() {
 #[test]
 fn entity_disappear_not_available_before_commit() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -152,7 +152,7 @@ fn entity_disappear_not_available_before_commit() {
 #[test]
 fn entity_disappear_not_available_before_removal() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A), move |ctx, entity| {
@@ -169,7 +169,7 @@ fn entity_disappear_not_available_before_removal() {
 #[test]
 fn empty_filter_entity_appear_after_entity_created() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(), move |ctx, entity| {
@@ -185,7 +185,7 @@ fn empty_filter_entity_appear_after_entity_created() {
 #[test]
 fn empty_filter_entity_disappear_after_entity_destroyed() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(), move |ctx, entity| {
@@ -203,7 +203,7 @@ fn empty_filter_entity_disappear_after_entity_destroyed() {
 #[test]
 fn empty_filter_entity_appear_not_available_after_entity_created_not_committed() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(), move |ctx, entity| {
@@ -218,7 +218,7 @@ fn empty_filter_entity_appear_not_available_after_entity_created_not_committed()
 #[test]
 fn abappear_event_for_ab() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_appear_handler("test", ecs_filter!(A, B), move |ctx, entity| {
@@ -236,7 +236,7 @@ fn abappear_event_for_ab() {
 #[test]
 fn components_available_during_disappear_event() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(C, D), move |ctx, entity| {
@@ -258,7 +258,7 @@ fn components_available_during_disappear_event() {
 #[test]
 fn removed_component_doesnt_fire_similar_disappears() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A, B), move |ctx, entity| {
@@ -277,7 +277,7 @@ fn removed_component_doesnt_fire_similar_disappears() {
 #[test]
 fn destroyed_entity_doesnt_fire_similar_disappears() {
     let matched = Rc::new(RefCell::new(Vec::new()));
-    let mut world = ConfigurableWorld::new();
+    let mut world = ConfigurableWorld::create_for_test();
     {
         let matched = matched.clone();
         world.add_disappear_handler("test", ecs_filter!(A, B), move |ctx, entity| {
