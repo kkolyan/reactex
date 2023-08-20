@@ -138,7 +138,7 @@ fn system5(_entity: Entity) {
 }
 
 #[on_signal(DEMO)]
-fn system6(entity: Entity, _a: &A, _ctx: Ctx<SomeSignal>) {
+fn system6(_entity: Entity, _a: &A, _ctx: Ctx<SomeSignal>) {
     // argument order doesn't matter
 }
 

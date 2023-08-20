@@ -1,7 +1,6 @@
 use crate::internal::cause::Cause;
 use crate::internal::signal_storage::SignalDataKey;
 use crate::internal::world_extras::Signal;
-use std::any::type_name;
 use std::any::TypeId;
 use std::collections::VecDeque;
 
@@ -13,7 +12,6 @@ pub(crate) struct SignalQueue {
 impl SignalQueue {
     pub(crate) fn signal<T: 'static>(&mut self, data: SignalDataKey, current_cause: &Cause) {
         self.signals.push_back(Signal {
-            type_name: type_name::<T>(),
             payload_type: TypeId::of::<T>(),
             data_key: data,
             cause: current_cause.clone(),

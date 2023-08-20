@@ -198,14 +198,12 @@ impl World {
     }
 
     pub(crate) fn flush_entity_destroy_actions(&mut self) {
-        for (entity, causes) in mem::take(&mut self.volatile.entities_to_destroy.after_disappear) {
+        for (entity, _) in mem::take(&mut self.volatile.entities_to_destroy.after_disappear) {
             self.stable
                 .entity_storage
                 .get_mut()
                 .delete_entity_data(entity.index);
-            self.stable
-                .filter_manager
-                .on_entity_destroyed(entity, causes);
+            self.stable.filter_manager.on_entity_destroyed(entity);
         }
     }
 

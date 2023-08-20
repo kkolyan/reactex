@@ -36,7 +36,6 @@ pub(crate) struct EventHandler {
 }
 
 pub(crate) struct Signal {
-    pub(crate) type_name: &'static str,
     pub(crate) payload_type: TypeId,
     pub(crate) data_key: SignalDataKey,
     pub(crate) cause: Cause,
@@ -50,7 +49,6 @@ pub(crate) enum ComponentEventType {
 
 pub(crate) struct ComponentModify {
     pub(crate) callback: Box<dyn FnOnce(&mut dyn Any)>,
-    pub(crate) cause: Cause,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

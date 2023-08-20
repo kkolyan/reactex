@@ -45,7 +45,7 @@ pub fn enable_queries(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
     let registration_stmts =
         TokenStream::from_iter(visitor.registratons.iter().map(|it| it.to_token_stream()));
 
-    let register_queries_fn = format_ident!("{}__register_queries", item_fn.sig.ident);
+    let register_queries_fn = format_ident!("__{}_register_queries", item_fn.sig.ident);
 
     Ok(quote! {
         #[reactex_core::ctor::ctor]

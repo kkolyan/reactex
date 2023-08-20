@@ -69,11 +69,7 @@ impl FilterManager {
         }
     }
 
-    pub(crate) fn on_entity_destroyed(
-        &mut self,
-        entity: InternalEntityKey,
-        causes: OptTinyVec<Cause>,
-    ) {
+    pub(crate) fn on_entity_destroyed(&mut self, entity: InternalEntityKey) {
         trace!("on_entity_destroyed {}", entity);
         if let Some(filter) = self.get_all_entities_filter() {
             if let Some(matched_entities) = &mut filter.matched_entities {

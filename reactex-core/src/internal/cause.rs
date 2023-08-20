@@ -4,9 +4,11 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Cause {
+    #[allow(dead_code)]
     inner: Rc<RefCell<CauseInner>>,
 }
 
+#[allow(dead_code)]
 struct CauseInner {
     title: &'static str,
     reasons: OptTinyVec<Cause>,

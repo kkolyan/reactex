@@ -7,6 +7,7 @@ use crate::internal::filter_manager_events::FilterComponentChange;
 use crate::internal::world_extras::InternalEntityKey;
 use crate::utils::opt_tiny_vec::OptTinyVec;
 use crate::utils::typed_index_vec::TiVec;
+use crate::utils::typed_index_vec::TiVecKey;
 use log::trace;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -23,6 +24,15 @@ pub(crate) struct FilterManager {
     all_entities: Option<InternalFilterKey>,
     pub(crate) with_new_appear_events: HashSet<InternalFilterKey>,
     pub(crate) with_new_disappear_events: HashSet<InternalFilterKey>,
+}
+
+impl TiVecKey for InternalFilterKey {
+    fn from_index(index: usize) -> Self {
+        InternalFilterKey(index)
+    }
+    fn as_index(&self) -> usize {
+        self.0
+    }
 }
 
 // basic operations

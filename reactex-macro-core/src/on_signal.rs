@@ -210,7 +210,7 @@ fn generate_registration_new(
         user_function
             .args
             .iter()
-            .map(|Argument(name, ty)| quote! {#name,}),
+            .map(|Argument(name, _)| quote! {#name,}),
     );
 
     let argument_mappings = TokenStream::from_iter(user_function.args.iter().map(

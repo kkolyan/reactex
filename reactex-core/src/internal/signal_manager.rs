@@ -64,7 +64,7 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
             .unwrap();
 
         for handler in &self.global_handlers {
-            let new_cause = Cause::consequence(handler.name, [volatile.current_cause.clone()]);
+            let new_cause = Cause::consequence(handler.name, [signal.cause.clone()]);
             let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
             let ctx = Ctx {
                 signal: &payload,

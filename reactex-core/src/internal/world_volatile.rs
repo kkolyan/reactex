@@ -17,7 +17,6 @@ use crate::internal::world_extras::ComponentModify;
 use crate::internal::world_extras::DeleteQueue;
 use crate::internal::world_extras::InternalEntityKey;
 use crate::utils::opt_tiny_vec::OptTinyVec;
-use crate::utils::pools::AbstractPool;
 use crate::world_result::ComponentError;
 use crate::world_result::WorldError;
 use crate::world_result::WorldResult;
@@ -73,7 +72,6 @@ impl VolatileWorld {
                     let state: &mut T = state.downcast_mut().unwrap();
                     change(state);
                 }),
-                cause: self.current_cause.clone(),
             });
         Ok(())
     }

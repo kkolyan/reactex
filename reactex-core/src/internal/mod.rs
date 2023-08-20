@@ -7,7 +7,6 @@ pub(crate) mod entity_storage;
 pub(crate) mod filter;
 pub(crate) mod filter_manager;
 pub(crate) mod filter_manager_events;
-pub(crate) mod filter_manager_iter;
 pub(crate) mod signal_manager;
 pub(crate) mod signal_queue;
 pub(crate) mod signal_sender;

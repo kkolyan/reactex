@@ -21,12 +21,10 @@ struct W {
 
 #[derive(Debug, EcsComponent)]
 struct X {
-    value: i32,
 }
 
 #[derive(Debug, EcsComponent)]
 struct Y {
-    value: i32,
 }
 
 struct NotCopy<T> {
@@ -54,16 +52,16 @@ fn create_world() -> World {
     world.create_entity();
     {
         let entity = world.create_entity();
-        world.add_component(entity, X { value: 0 }).unwrap();
+        world.add_component(entity, X { }).unwrap();
     }
     {
         let entity = world.create_entity();
-        world.add_component(entity, Y { value: 0 }).unwrap();
+        world.add_component(entity, Y {  }).unwrap();
     }
     {
         let entity = world.create_entity();
-        world.add_component(entity, X { value: 0 }).unwrap();
-        world.add_component(entity, Y { value: 0 }).unwrap();
+        world.add_component(entity, X { }).unwrap();
+        world.add_component(entity, Y { }).unwrap();
     }
 
     world

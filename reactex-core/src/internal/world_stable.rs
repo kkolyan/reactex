@@ -17,7 +17,6 @@ use crate::internal::world_extras::EntityIndex;
 use crate::internal::world_extras::EventHandler;
 use crate::internal::world_pipeline::PipelineStep;
 use crate::utils::pool_pump::AbstractPoolPump;
-use crate::utils::pools::AbstractPool;
 use crate::utils::pools::SpecificPool;
 use crate::world_result::WorldResult;
 use std::any::TypeId;
