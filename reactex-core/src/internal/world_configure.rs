@@ -57,7 +57,7 @@ impl World {
             .payloads
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()));
-        let filter = self.stable.filter_manager.get_filter(filter);
+        let filter = self.stable.filter_manager.get_filter_mut(filter);
         filter.track_matched_entities(
             self.stable.entity_storage.borrow().deref(),
             &self.stable.component_mappings,
@@ -80,7 +80,7 @@ impl World {
         filter_key: FilterDesc,
         callback: impl Fn(Ctx, EntityKey) + 'static,
     ) {
-        let filter = self.stable.filter_manager.get_filter(filter_key);
+        let filter = self.stable.filter_manager.get_filter_mut(filter_key);
         filter.track_disappear_events();
         let filter_key = filter.unique_key;
         self.stable
@@ -99,7 +99,7 @@ impl World {
         filter_key: FilterDesc,
         callback: impl Fn(Ctx, EntityKey) + 'static,
     ) {
-        let filter = self.stable.filter_manager.get_filter(filter_key);
+        let filter = self.stable.filter_manager.get_filter_mut(filter_key);
         filter.track_appear_events();
         let filter_key = filter.unique_key;
         self.stable

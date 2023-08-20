@@ -50,7 +50,7 @@ impl World {
     fn register_filter(&mut self, filter: FilterDesc) {
         self.stable
             .filter_manager
-            .get_filter(filter)
+            .get_filter_mut(filter)
             .track_matched_entities(
                 self.stable.entity_storage.get_mut(),
                 &self.stable.component_mappings,

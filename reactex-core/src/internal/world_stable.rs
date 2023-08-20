@@ -65,7 +65,7 @@ impl StableWorld {
     pub(crate) fn query(&self, filter: FilterDesc, mut callback: impl FnMut(EntityKey)) {
         for matched_entity in self
             .filter_manager
-            .get_filter_unmut(filter)
+            .get_filter(filter)
             .matched_entities
             .as_ref()
             .unwrap_or_else(|| panic!("query is not initialized: {}", filter))
