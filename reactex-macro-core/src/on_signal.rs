@@ -196,7 +196,7 @@ fn generate_registration_new(
 
     let filter_key = match event_type {
         EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {
-            ecs_filter_expression(user_function.args.iter())
+            Some(ecs_filter_expression(user_function.args.iter()))
         }
         EventType::OnSignalGlobal => None,
     };
@@ -395,7 +395,7 @@ fn generate_registration_new(
 
 pub(crate) fn ecs_filter_expression<'a>(
     iter: impl Iterator<Item = &'a Argument>,
-) -> Option<TokenStream> {
+) -> TokenStream {
     let components = iter.filter_map(|Argument(_, ty)| match ty {
         ArgumentType::Ctx(_, _) => None,
         ArgumentType::Entity(_) => None,
@@ -405,7 +405,7 @@ pub(crate) fn ecs_filter_expression<'a>(
         ArgumentType::OptionalComponentMutableWrapper(_) => None,
     });
     let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
-    Some(quote! {
+    quote! {
         ::reactex_core::filter::filter_desc::ecs_filter!(#components)
-    })
+    }
 }

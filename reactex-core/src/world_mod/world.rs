@@ -31,10 +31,9 @@ use justerror::Error;
 use std::any::Any;
 use std::any::TypeId;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::mem;
-use std::ops::Deref;
 use std::sync::{Mutex, RwLock};
 use log::trace;
 
@@ -52,13 +51,22 @@ pub struct VolatileWorld {
 }
 
 static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
+
 pub(crate) static COMPONENT_NAMES: RwLock<Option<HashMap<ComponentType, &'static str>>> = RwLock::new(None);
+
+static QUERIES: Mutex<Option<HashSet<FilterDesc>>> = Mutex::new(None);
 
 pub fn register_type(registration: fn(&mut World)) {
     COMPONENT_TYPE_REGISTRATIONS
         .lock()
         .unwrap()
         .push(registration);
+}
+
+pub fn register_query(filter: FilterDesc) {
+    QUERIES.lock().unwrap()
+        .get_or_insert_with(HashSet::new)
+        .insert(filter);
 }
 
 pub struct World {
@@ -74,6 +82,10 @@ impl World {
         };
         for registration in COMPONENT_TYPE_REGISTRATIONS.lock().unwrap().iter() {
             registration(&mut world);
+        }
+
+        for filter in QUERIES.lock().unwrap().iter().flatten() {
+            world.register_filter(*filter);
         }
 
         pipeline::configure_pipeline(&mut world);
@@ -98,6 +110,10 @@ impl World {
             .or_insert(Box::<
                 SpecificPoolPump<TempComponentDataKey, ComponentDataKey, T>,
             >::default());
+    }
+    fn register_filter(&mut self, filter: FilterDesc) {
+        self.stable.filter_manager.get_mut().get_filter(filter)
+            .track_matched_entities(self.stable.entity_storage.get_mut(), &self.stable.component_mappings);
     }
 }
 
@@ -158,10 +174,9 @@ impl StableWorld {
             .filter_manager
             .borrow_mut()
             .get_filter(filter)
-            .track_matched_entities(
-                self.entity_storage.borrow().deref(),
-                &self.component_mappings,
-            )
+            .matched_entities
+            .as_ref()
+            .unwrap_or_else(|| panic!("query is not initialized: {}", filter))
             .iter()
         {
             callback(matched_entity.export());

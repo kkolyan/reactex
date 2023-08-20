@@ -6,7 +6,7 @@ use crate::on_signal::ecs_filter_expression;
 use crate::on_signal::extract_argument;
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use quote::ToTokens;
 use quote::TokenStreamExt;
 use std::mem;
@@ -34,7 +34,7 @@ pub fn enable_queries(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
     let item_fn = parse2::<ItemFn>(item.clone())?;
 
     let mut visitor = MyVisitor {
-        items: vec![],
+        registratons: vec![],
         errors: vec![],
         next_wrapper_id: 0,
     };
@@ -42,12 +42,17 @@ pub fn enable_queries(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 
     aggregate_errors(visitor.errors.into_iter())?;
 
-    let mut output = TokenStream::new();
-    output.append_all(visitor.items.into_iter());
+    let registration_stmts = TokenStream::from_iter(visitor.registratons.iter().map(|it| it.to_token_stream()));
 
-    output.append_all(item_fn.to_token_stream());
+    let register_queries_fn = format_ident!("{}__register_queries", item_fn.sig.ident);
 
-    Ok(output)
+    Ok(quote! {
+        #[reactex_core::ctor::ctor]
+        fn #register_queries_fn() {
+            #registration_stmts
+        }
+        #item_fn
+    })
 }
 
 fn transform_closure(
@@ -128,6 +133,10 @@ fn transform_closure(
 
     let ecs_filter = ecs_filter_expression(result.iter().map(|(_, arg)| arg));
 
+    visitor.registratons.push(parse2::<Stmt>(quote! {
+        reactex_core::world_mod::world::register_query(#ecs_filter);
+    }).unwrap());
+
     let arg_decls = TokenStream::from_iter(
         result
             .iter()
@@ -167,7 +176,7 @@ fn transform_closure(
 }
 
 struct MyVisitor {
-    items: Vec<Item>,
+    registratons: Vec<Stmt>,
     errors: Vec<Error>,
     next_wrapper_id: u32,
 }
