@@ -1,5 +1,6 @@
 use crate::common;
-use crate::common::{aggregate_errors, Argument};
+use crate::common::aggregate_errors;
+use crate::common::Argument;
 use crate::common::ArgumentType;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
@@ -110,7 +111,9 @@ fn extract_argument_ty(ty: &Type) -> Result<ArgumentType> {
                             ArgumentType::Ctx(_, _)
                             | ArgumentType::Entity(_)
                             | ArgumentType::OptionalComponentReference(_)
-                            | ArgumentType::OptionalComponentMutableWrapper(_) => Err(Error::new(ty.span(), "invalid optional argument")),
+                            | ArgumentType::OptionalComponentMutableWrapper(_) => {
+                                Err(Error::new(ty.span(), "invalid optional argument"))
+                            }
                             ArgumentType::ComponentReference(it) => {
                                 Ok(ArgumentType::OptionalComponentReference(it))
                             }
@@ -393,9 +396,7 @@ fn generate_registration_new(
     })
 }
 
-pub(crate) fn ecs_filter_expression<'a>(
-    iter: impl Iterator<Item = &'a Argument>,
-) -> TokenStream {
+pub(crate) fn ecs_filter_expression<'a>(iter: impl Iterator<Item = &'a Argument>) -> TokenStream {
     let components = iter.filter_map(|Argument(_, ty)| match ty {
         ArgumentType::Ctx(_, _) => None,
         ArgumentType::Entity(_) => None,

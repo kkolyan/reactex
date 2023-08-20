@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
 
 use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_core::world_mod::world::{ConfigurableWorld, register_query};
+use reactex_core::world_mod::world::register_query;
+use reactex_core::world_mod::world::ConfigurableWorld;
 use reactex_macro::EcsComponent;
 
 #[derive(EcsComponent, Debug, Default)]

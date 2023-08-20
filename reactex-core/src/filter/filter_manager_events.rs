@@ -4,8 +4,8 @@ use crate::filter::events::FilterComponentChange;
 use crate::filter::filter_manager::FilterManager;
 use crate::opt_tiny_vec::OptTinyVec;
 use crate::world_mod::entity_component_index::EntityComponentIndex;
-use std::collections::HashSet;
 use log::trace;
+use std::collections::HashSet;
 
 impl FilterManager {
     pub fn on_component_added(
@@ -54,9 +54,7 @@ impl FilterManager {
         }
     }
 
-    pub fn on_component_removed(
-        &mut self, change: FilterComponentChange
-    ) {
+    pub fn on_component_removed(&mut self, change: FilterComponentChange) {
         trace!("on_component_removed {}", change.component_key);
         let filters = self
             .by_component_type

@@ -118,6 +118,7 @@ impl World {
 
     pub fn remove_component<T: EcsComponent>(&mut self, entity: EntityKey) -> WorldResult {
         let entity_storage = self.stable.entity_storage.get_mut();
-        self.volatile.remove_component::<T>(entity, entity_storage, &self.stable.component_mappings)
+        self.volatile
+            .remove_component::<T>(entity, entity_storage, &self.stable.component_mappings)
     }
 }

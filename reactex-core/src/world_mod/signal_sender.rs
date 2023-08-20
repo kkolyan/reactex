@@ -1,8 +1,9 @@
 use crate::cause::Cause;
 use crate::world_mod::signal_queue::SignalQueue;
 use crate::world_mod::signal_storage::SignalStorage;
-use std::any::{type_name, TypeId};
 use log::trace;
+use std::any::type_name;
+use std::any::TypeId;
 
 pub struct SignalSender<'a> {
     pub(crate) signal_queue: &'a mut SignalQueue,

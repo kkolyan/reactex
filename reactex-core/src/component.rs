@@ -1,5 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::world_mod::world::COMPONENT_NAMES;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 pub trait EcsComponent: 'static {
     const INDEX: u16;

@@ -119,7 +119,6 @@ impl<'a, TComponent: EcsComponent> Mut<'a, TComponent> {
         })
     }
 
-
     pub fn modify(&self, change: impl FnOnce(&mut TComponent) + 'static) {
         self.entity.modify(change);
     }
@@ -158,7 +157,11 @@ impl<'a> Entity<'a> {
         let volatile_world = &mut self.volatile.borrow_mut();
         volatile_world
             .deref_mut()
-            .remove_component::<TComponent>(self.key.export(), entity_storage.deref(), &self.stable.component_mappings)
+            .remove_component::<TComponent>(
+                self.key.export(),
+                entity_storage.deref(),
+                &self.stable.component_mappings,
+            )
             .unwrap()
     }
 
@@ -183,7 +186,7 @@ impl<'a> UncommittedEntity<'a> {
             stable: self.stable,
             volatile: self.volatile,
         }
-            .destroy();
+        .destroy();
     }
 
     pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
@@ -192,7 +195,7 @@ impl<'a> UncommittedEntity<'a> {
             stable: self.stable,
             volatile: self.volatile,
         }
-            .add(value);
+        .add(value);
     }
 }
 

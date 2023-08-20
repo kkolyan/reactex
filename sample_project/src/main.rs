@@ -160,7 +160,6 @@ fn main() {
 
     // do some actions on the top level (outside of event callbacks)
     ecs.execute_once(|ctx| {
-
         // the code inside closure passed to `execute_once` has the same rules, abilities and limitations
         // as the code inside event handlers
 

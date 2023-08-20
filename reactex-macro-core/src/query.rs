@@ -6,7 +6,8 @@ use crate::on_signal::ecs_filter_expression;
 use crate::on_signal::extract_argument;
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::format_ident;
+use quote::quote;
 use quote::ToTokens;
 use quote::TokenStreamExt;
 use std::mem;
@@ -42,7 +43,8 @@ pub fn enable_queries(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 
     aggregate_errors(visitor.errors.into_iter())?;
 
-    let registration_stmts = TokenStream::from_iter(visitor.registratons.iter().map(|it| it.to_token_stream()));
+    let registration_stmts =
+        TokenStream::from_iter(visitor.registratons.iter().map(|it| it.to_token_stream()));
 
     let register_queries_fn = format_ident!("{}__register_queries", item_fn.sig.ident);
 
@@ -112,7 +114,7 @@ fn transform_closure(
                     "Ctx is not allowed in queries - use one from the containing function",
                 ));
                 return Expr::Closure(closure);
-            },
+            }
             ArgumentType::Entity(_) => quote! {
                 let #name = __entity__;
             },
@@ -133,9 +135,12 @@ fn transform_closure(
 
     let ecs_filter = ecs_filter_expression(result.iter().map(|(_, arg)| arg));
 
-    visitor.registratons.push(parse2::<Stmt>(quote! {
-        reactex_core::world_mod::world::register_query(#ecs_filter);
-    }).unwrap());
+    visitor.registratons.push(
+        parse2::<Stmt>(quote! {
+            reactex_core::world_mod::world::register_query(#ecs_filter);
+        })
+        .unwrap(),
+    );
 
     let arg_decls = TokenStream::from_iter(
         result

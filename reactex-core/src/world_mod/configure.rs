@@ -1,16 +1,16 @@
-use std::any::TypeId;
 use crate::entity::EntityKey;
 use crate::filter::filter_desc::FilterDesc;
+use crate::pools::SpecificPool;
 use crate::world_mod::signal_manager::EntitySignalHandler;
 use crate::world_mod::signal_manager::GlobalSignalHandler;
+use crate::world_mod::signal_storage::SignalDataKey;
 use crate::world_mod::world::EventHandler;
 use crate::world_mod::world::StableWorld;
 use crate::world_mod::world::VolatileWorld;
 use crate::world_mod::world::World;
-use std::ops::Deref;
 use log::trace;
-use crate::pools::SpecificPool;
-use crate::world_mod::signal_storage::SignalDataKey;
+use std::any::TypeId;
+use std::ops::Deref;
 
 impl World {
     pub(crate) fn add_global_signal_handler<T: 'static>(
@@ -18,8 +18,14 @@ impl World {
         name: &'static str,
         callback: impl Fn(&T, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
-        trace!("register global signal handler '{}' for {}", name, std::any::type_name::<T>());
-        self.volatile.signal_storage.payloads
+        trace!(
+            "register global signal handler '{}' for {}",
+            name,
+            std::any::type_name::<T>()
+        );
+        self.volatile
+            .signal_storage
+            .payloads
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()));
         self.stable
@@ -37,8 +43,15 @@ impl World {
         filter: FilterDesc,
         callback: impl Fn(&T, EntityKey, &StableWorld, &mut VolatileWorld) + 'static,
     ) {
-        trace!("register signal handler '{}' for {} and {}", name, std::any::type_name::<T>(), filter);
-        self.volatile.signal_storage.payloads
+        trace!(
+            "register signal handler '{}' for {} and {}",
+            name,
+            std::any::type_name::<T>(),
+            filter
+        );
+        self.volatile
+            .signal_storage
+            .payloads
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()));
         let filter = self.stable.filter_manager.get_filter(filter);

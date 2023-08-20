@@ -1,7 +1,8 @@
 use crate::cause::Cause;
 use crate::world_mod::signal_storage::SignalDataKey;
 use crate::world_mod::world::Signal;
-use std::any::{type_name, TypeId};
+use std::any::type_name;
+use std::any::TypeId;
 use std::collections::VecDeque;
 
 #[derive(Default)]

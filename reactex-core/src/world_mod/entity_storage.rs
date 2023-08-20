@@ -6,10 +6,10 @@ use crate::world_mod::world::EntityError;
 use crate::world_mod::world::EntityError::IsStale;
 use crate::world_mod::world::EntityError::NotCommitted;
 use crate::world_mod::world::EntityError::NotExists;
+use log::trace;
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Not;
-use log::trace;
 
 pub(crate) struct EntityStorage {
     entities: Box<[EntityBox]>,

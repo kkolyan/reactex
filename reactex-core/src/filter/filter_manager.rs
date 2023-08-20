@@ -1,16 +1,15 @@
+use crate::cause::Cause;
 use crate::component::ComponentType;
+use crate::entity::InternalEntityKey;
 use crate::filter::events::FilterComponentChange;
 use crate::filter::filter::Filter;
 use crate::filter::filter_desc::FilterDesc;
+use crate::opt_tiny_vec::OptTinyVec;
 use crate::typed_index_vec::TiVec;
+use crate::world_mod::entity_component_index::EntityComponentIndex;
+use log::trace;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use log::trace;
-use crate::cause::Cause;
-use crate::entity::InternalEntityKey;
-use crate::opt_tiny_vec::OptTinyVec;
-use crate::world_mod::component_mapping::ComponentMappingStorage;
-use crate::world_mod::entity_component_index::EntityComponentIndex;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct InternalFilterKey(pub usize);
@@ -87,7 +86,11 @@ impl FilterManager {
         self.owned.get_mut(&filter_index).unwrap()
     }
 
-    pub fn generate_disappear_events(&mut self, component: FilterComponentChange, entity_component_index: &EntityComponentIndex) {
+    pub fn generate_disappear_events(
+        &mut self,
+        component: FilterComponentChange,
+        entity_component_index: &EntityComponentIndex,
+    ) {
         trace!("generate disappear events {}", component.component_key);
         let filters = self
             .by_component_type
@@ -101,7 +104,12 @@ impl FilterManager {
             let present: HashSet<_> = HashSet::from_iter(
                 entity_component_index.get_component_types(component.component_key.entity.index),
             );
-            if !filter.criteria.component_types.iter().all(|it| present.contains(it)) {
+            if !filter
+                .criteria
+                .component_types
+                .iter()
+                .all(|it| present.contains(it))
+            {
                 continue;
             }
             if let Some(disappear_events) = &mut filter.disappear_events {
@@ -115,11 +123,13 @@ impl FilterManager {
         }
     }
 
-    pub(crate) fn generate_entity_disappear_events(&mut self, entity: InternalEntityKey, causes: OptTinyVec<Cause>) {
+    pub(crate) fn generate_entity_disappear_events(
+        &mut self,
+        entity: InternalEntityKey,
+        causes: OptTinyVec<Cause>,
+    ) {
         trace!("generate disappear events for entity {}", entity);
-        let filters = self
-            .all_entities
-            .iter();
+        let filters = self.all_entities.iter();
 
         for filter in filters {
             let filter = self.owned.get_mut(filter).unwrap();

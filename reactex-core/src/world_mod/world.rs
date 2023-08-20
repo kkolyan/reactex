@@ -28,14 +28,17 @@ use crate::world_mod::signal_sender::SignalSender;
 use crate::world_mod::signal_storage::SignalDataKey;
 use crate::world_mod::signal_storage::SignalStorage;
 use justerror::Error;
+use log::trace;
 use std::any::Any;
 use std::any::TypeId;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::mem;
-use std::sync::{Mutex, RwLock};
-use log::trace;
+use std::sync::Mutex;
+use std::sync::RwLock;
 
 pub struct VolatileWorld {
     entity_component_index: EntityComponentIndex,
@@ -52,7 +55,8 @@ pub struct VolatileWorld {
 
 static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
 
-pub(crate) static COMPONENT_NAMES: RwLock<Option<HashMap<ComponentType, &'static str>>> = RwLock::new(None);
+pub(crate) static COMPONENT_NAMES: RwLock<Option<HashMap<ComponentType, &'static str>>> =
+    RwLock::new(None);
 
 static QUERIES: Mutex<Option<HashSet<FilterDesc>>> = Mutex::new(None);
 
@@ -64,7 +68,9 @@ pub fn register_type(registration: fn(&mut World)) {
 }
 
 pub fn register_query(filter: FilterDesc) {
-    QUERIES.lock().unwrap()
+    QUERIES
+        .lock()
+        .unwrap()
         .get_or_insert_with(HashSet::new)
         .insert(filter);
 }
@@ -97,7 +103,11 @@ impl World {
         if guard.is_none() {
             *guard = Some(HashMap::new());
         }
-        guard.as_mut().unwrap().entry(T::get_component_type()).or_insert(T::NAME);
+        guard
+            .as_mut()
+            .unwrap()
+            .entry(T::get_component_type())
+            .or_insert(T::NAME);
 
         self.stable.component_data.init_pool::<T>("live components");
         self.volatile
@@ -112,22 +122,28 @@ impl World {
             >::default());
     }
     fn register_filter(&mut self, filter: FilterDesc) {
-        self.stable.filter_manager.get_filter(filter)
-            .track_matched_entities(self.stable.entity_storage.get_mut(), &self.stable.component_mappings);
+        self.stable
+            .filter_manager
+            .get_filter(filter)
+            .track_matched_entities(
+                self.stable.entity_storage.get_mut(),
+                &self.stable.component_mappings,
+            );
     }
 }
 
 pub struct StableWorld {
+    pub(crate) entity_storage: RefCell<EntityStorage>,
+
     pub(crate) component_data: ComponentPoolManager<ComponentDataKey>,
     pub(crate) component_mappings: ComponentMappingStorage,
     pub(crate) filter_manager: FilterManager,
-    pub(crate) entity_storage: RefCell<EntityStorage>,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
     pub(crate) on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     pub(crate) on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     pub(crate) sequence: Vec<Step>,
     component_data_pumps:
-    HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
+        HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
 }
 
 impl StableWorld {
@@ -341,7 +357,9 @@ impl VolatileWorld {
             .remove(&ComponentKey::of::<T>(entity))
             .is_some();
         if !removed_uncommitted {
-            if !component_mappings.has_component_no_validation(entity.index, T::get_component_type()) {
+            if !component_mappings
+                .has_component_no_validation(entity.index, T::get_component_type())
+            {
                 return Err(WorldError::Component(ComponentError::NotFound));
             }
             self.components_to_delete
@@ -415,9 +433,7 @@ impl World {
                 .entity_storage
                 .get_mut()
                 .mark_committed(task.index);
-            self.stable
-                .filter_manager
-                .on_entity_created(task, causes);
+            self.stable.filter_manager.on_entity_created(task, causes);
         }
     }
 
@@ -568,7 +584,7 @@ impl World {
 
     pub(crate) fn flush_component_removals(&mut self) {
         for (component_key, causes) in
-        mem::take(&mut self.volatile.components_to_delete.after_disappear)
+            mem::take(&mut self.volatile.components_to_delete.after_disappear)
         {
             let data_key = self
                 .stable
@@ -598,18 +614,16 @@ impl World {
 
     pub(crate) fn generate_disappear_events(&mut self) {
         for (component_key, causes) in
-        mem::take(&mut self.volatile.components_to_delete.before_disappear)
+            mem::take(&mut self.volatile.components_to_delete.before_disappear)
         {
-            self.stable
-                .filter_manager
-                .generate_disappear_events(
-                    FilterComponentChange {
-                        component_key,
-                        // TODO consider avoid cloning
-                        causes: causes.clone(),
-                    },
-                    &self.volatile.entity_component_index,
-                );
+            self.stable.filter_manager.generate_disappear_events(
+                FilterComponentChange {
+                    component_key,
+                    // TODO consider avoid cloning
+                    causes: causes.clone(),
+                },
+                &self.volatile.entity_component_index,
+            );
             self.volatile
                 .components_to_delete
                 .after_disappear
@@ -635,15 +649,22 @@ impl World {
                     .entry(component_key)
                     .or_default();
                 for cause in causes.clone() {
-                    trace!("scheduling removal of {} due to entity destroy", component_key);
+                    trace!(
+                        "scheduling removal of {} due to entity destroy",
+                        component_key
+                    );
                     existing_causes.push(cause);
                 }
             }
-            self.volatile.entities_to_destroy.after_disappear.entry(entity)
+            self.volatile
+                .entities_to_destroy
+                .after_disappear
+                .entry(entity)
                 .or_default()
                 .extend(causes.clone());
 
-            self.stable.filter_manager
+            self.stable
+                .filter_manager
                 .generate_entity_disappear_events(entity, causes);
         }
     }
