@@ -2,17 +2,19 @@ use crate::ctx::Ctx;
 use crate::module::Module;
 use crate::ConfigurableWorld;
 use crate::World;
+use log::trace;
 use std::cell::RefCell;
 use std::sync::RwLock;
-use log::trace;
 
 pub struct EcsContainerBuilder {
     world: ConfigurableWorld,
 }
 
 impl EcsContainerBuilder {
-
-    pub fn configure_in_test(mut self, actions: impl FnOnce(&mut ConfigurableWorld)) -> EcsContainerBuilder {
+    pub fn configure_in_test(
+        mut self,
+        actions: impl FnOnce(&mut ConfigurableWorld),
+    ) -> EcsContainerBuilder {
         actions(&mut self.world);
         self
     }

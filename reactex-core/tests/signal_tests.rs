@@ -1,13 +1,15 @@
 #![allow(non_snake_case)]
 
-use reactex_core::{ecs_filter, EcsContainer};
+use ctor::ctor;
+use reactex_core::ecs_filter;
 use reactex_core::ConfigurableWorld;
+use reactex_core::EcsContainer;
 use reactex_macro::EcsComponent;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
+use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
-use ctor::ctor;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}

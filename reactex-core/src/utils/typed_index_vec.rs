@@ -50,11 +50,11 @@ impl<K, V> TiVec<K, V> {
         key
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&V> {
+    pub fn iter(&self) -> impl Iterator<Item = &V> {
         self.inner.iter()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut V> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut V> {
         self.inner.iter_mut()
     }
 }
