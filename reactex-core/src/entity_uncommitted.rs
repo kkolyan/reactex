@@ -2,7 +2,7 @@ use crate::component::EcsComponent;
 use crate::entity::Entity;
 use crate::entity_key::EntityKey;
 use crate::internal::world_extras::InternalEntityKey;
-use crate::StableWorld;
+use crate::{StableWorld, WorldResult};
 use crate::VolatileWorld;
 use std::cell::RefCell;
 
@@ -34,5 +34,14 @@ impl<'a> UncommittedEntity<'a> {
             volatile: self.volatile,
         }
         .add(value);
+    }
+
+    pub fn try_add<TComponent: EcsComponent>(&self, value: TComponent) -> WorldResult {
+        Entity {
+            key: self.key,
+            stable: self.stable,
+            volatile: self.volatile,
+        }
+        .try_add(value)
     }
 }

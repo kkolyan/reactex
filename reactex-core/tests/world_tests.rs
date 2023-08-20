@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use ctor::ctor;
-use reactex_core::ConfigurableWorld;
+use reactex_core::{ConfigurableWorld, EcsContainer, EcsContainerBuilder};
 use reactex_core::ComponentError;
 use reactex_core::EntityError;
 use reactex_core::World;
@@ -39,69 +39,78 @@ fn init_logging() {
     println!("test started");
 }
 
-#[test]
-fn entity_exists_immediately() {
-    let mut world = create_world();
-    let entity = world.create_entity();
-    assert!(world.entity_exists(entity));
-}
-
-fn create_world() -> World {
-    let mut world = ConfigurableWorld::new().seal();
+fn create_world() -> EcsContainer {
+    
+    let mut world = EcsContainer::create().seal();
 
     // just noise to avoid false positives due to zero indexes or absence of interference
 
-    world.create_entity();
-    {
-        let entity = world.create_entity();
-        world.add_component(entity, X { value: 0 }).unwrap();
-    }
-    {
-        let entity = world.create_entity();
-        world.add_component(entity, Y { value: 0 }).unwrap();
-    }
-    {
-        let entity = world.create_entity();
-        world.add_component(entity, X { value: 0 }).unwrap();
-        world.add_component(entity, Y { value: 0 }).unwrap();
-    }
-
+    world.execute_once(|ctx| {
+        {
+            let entity = ctx.create_entity();
+            entity.add(X { value: 0 });
+        }
+        {
+            let entity = ctx.create_entity();
+            entity.add(Y { value: 0 });
+        }
+        {
+            let entity = ctx.create_entity();
+            entity.add(X { value: 0 });
+            entity.add(Y { value: 0 });
+        }
+        ctx.create_entity();
+    });
     world
 }
 
 #[test]
 fn entity_could_be_deleted_immediately() {
     let mut world = create_world();
-    let entity = world.create_entity();
-    world.destroy_entity(entity).unwrap();
-    assert!(!world.entity_exists(entity));
+    let mut created = None;
+    world.execute_once(|ctx| {
+        let entity = ctx.create_entity();
+        created = Some(entity.key());
+        entity.destroy();
+    });
+
+    world.execute_once(|ctx| {
+        assert!(!ctx.get_entity(created.unwrap()).is_none());
+    });
+}
+
+#[test]
+fn entity_could_be_deleted_immediately_so_cannot_add_component() {
+    let mut world = create_world();
+    world.execute_once(|ctx| {
+        let entity = ctx.create_entity();
+        entity.clone().destroy();
+        let result = entity.try_add(A { value: 17 });
+        assert_eq!(result, Err(WorldError::Entity(EntityError::NotExists)));
+    });
 }
 
 #[test]
 fn component_can_be_added_to_uncommitted_entity() {
     let mut world = create_world();
-    let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
-}
-
-#[test]
-fn component_cannot_be_deleted_from_uncommitted_entity() {
-    let mut world = create_world();
-    let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
-    assert_eq!(
-        world.remove_component::<A>(entity),
-        Err(WorldError::Entity(EntityError::NotCommitted))
-    )
+    world.execute_once(|world| {
+        let entity = world.create_entity();
+        entity.add(A::default());
+    });
 }
 
 #[test]
 fn uncommitted_component_can_be_deleted() {
     let mut world = create_world();
-    let entity = world.create_entity();
-    world.execute_all();
-    world.add_component(entity, A::default()).unwrap();
-    assert_eq!(world.remove_component::<A>(entity), Ok(()))
+    let mut entity = None;
+    world.execute_once(|world| {
+        entity = Some(world.create_entity().key());
+    });
+    world.execute_once(|world| {
+        let entity = world.get_entity(entity.unwrap()).unwrap();
+        entity.add(A::default()).unwrap();
+        assert_eq!(world.remove_component::<A>(entity), Ok(()))
+    });
 }
 
 #[test]
@@ -119,7 +128,7 @@ fn non_existent_component_cannot_be_deleted() {
 fn component_cannot_be_checked_on_uncommitted_entity() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     assert_eq!(
         world.has_component::<A>(entity),
         Err(WorldError::Entity(EntityError::NotCommitted))
@@ -130,7 +139,7 @@ fn component_cannot_be_checked_on_uncommitted_entity() {
 fn component_cannot_be_read_on_uncommitted_entity() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     assert_eq!(
         world.get_component::<A>(entity).unwrap_err(),
         WorldError::Entity(EntityError::NotCommitted)
@@ -141,7 +150,7 @@ fn component_cannot_be_read_on_uncommitted_entity() {
 fn component_checked_after_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     world.execute_all();
 
     assert!(world.has_component::<A>(entity).unwrap());
@@ -151,7 +160,7 @@ fn component_checked_after_commit() {
 fn component_state_available_after_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A { value: 42 }).unwrap();
+    entity.add(A { value: 42 }).unwrap();
     world.execute_all();
 
     assert_eq!(world.get_component::<A>(entity).unwrap().unwrap().value, 42);
@@ -161,7 +170,7 @@ fn component_state_available_after_commit() {
 fn component_state_change_not_visible_before_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A { value: 17 }).unwrap();
+    entity.add(A { value: 17 }).unwrap();
     world.execute_all();
 
     world
@@ -175,7 +184,7 @@ fn component_state_change_not_visible_before_commit() {
 fn component_state_change_visible_after_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     world.execute_all();
 
     world
@@ -190,7 +199,7 @@ fn component_state_change_visible_after_commit() {
 fn component_state_change_may_use_closure() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     world.execute_all();
 
     let value = NotCopy { value: 42 };
@@ -208,7 +217,7 @@ fn component_state_change_may_use_closure() {
 fn component_state_changes_merged() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, W { a: 17, b: 42 }).unwrap();
+    entity.add(W { a: 17, b: 42 }).unwrap();
     world.execute_all();
 
     world.modify_component::<W>(entity, |it| it.a += 1).unwrap();
@@ -224,7 +233,7 @@ fn component_state_changes_merged() {
 fn component_delete_uncommitted_not_visible() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     world.execute_all();
     world.remove_component::<A>(entity).unwrap();
     assert!(world.has_component::<A>(entity).unwrap());
@@ -234,7 +243,7 @@ fn component_delete_uncommitted_not_visible() {
 fn component_delete_visible_after_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     world.execute_all();
     world.remove_component::<A>(entity).unwrap();
     world.execute_all();
@@ -246,7 +255,7 @@ fn component_add_delete_visible_after_commit() {
     let mut world = create_world();
     let entity = world.create_entity();
     world.execute_all();
-    world.add_component(entity, A::default()).unwrap();
+    entity.add(A::default()).unwrap();
     world.remove_component::<A>(entity).unwrap();
     world.execute_all();
     assert!(!world.has_component::<A>(entity).unwrap());

@@ -1,7 +1,7 @@
 use crate::component::EcsComponent;
 use crate::entity_key::EntityKey;
 use crate::internal::world_extras::InternalEntityKey;
-use crate::StableWorld;
+use crate::{StableWorld, WorldResult};
 use crate::VolatileWorld;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -28,12 +28,15 @@ impl<'a> Entity<'a> {
     }
 
     pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
+        self.try_add(value).unwrap();
+    }
+
+    pub fn try_add<TComponent: EcsComponent>(&self, value: TComponent) -> WorldResult {
         let entity_storage = self.stable.entity_storage.borrow();
         let volatile_world = &mut self.volatile.borrow_mut();
         volatile_world
             .deref_mut()
             .add_component(self.key.export(), value, entity_storage.deref())
-            .unwrap();
     }
 
     pub fn get<TComponent: EcsComponent>(&self) -> Option<&TComponent> {
