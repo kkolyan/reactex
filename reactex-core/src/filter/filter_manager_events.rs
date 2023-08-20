@@ -5,6 +5,7 @@ use crate::filter::filter_manager::FilterManager;
 use crate::opt_tiny_vec::OptTinyVec;
 use crate::world_mod::entity_component_index::EntityComponentIndex;
 use std::collections::HashSet;
+use log::trace;
 
 impl FilterManager {
     pub fn on_component_added(
@@ -12,6 +13,7 @@ impl FilterManager {
         entity_component_index: &EntityComponentIndex,
         change: FilterComponentChange,
     ) {
+        trace!("on_component_added {}", change.component_key);
         let filters = self
             .by_component_type
             .get_mut(&change.component_key.component_type)
@@ -52,7 +54,10 @@ impl FilterManager {
         }
     }
 
-    pub fn on_component_removed(&mut self, change: FilterComponentChange) {
+    pub fn on_component_removed(
+        &mut self, change: FilterComponentChange
+    ) {
+        trace!("on_component_removed {}", change.component_key);
         let filters = self
             .by_component_type
             .get_mut(&change.component_key.component_type)
@@ -60,29 +65,18 @@ impl FilterManager {
             .flat_map(|it| it.iter());
         for filter in filters {
             let filter = self.owned.get_mut(filter).unwrap();
-            let mut events = false;
             if let Some(matched) = &mut filter.matched_entities {
                 matched.remove(&change.component_key.entity);
-                events = true;
-            }
-            if events {
-                self.with_new_disappear_events.insert(filter.unique_key);
             }
         }
     }
 
     pub fn on_entity_destroyed(&mut self, entity: InternalEntityKey, causes: OptTinyVec<Cause>) {
-        let relevant_key = self.get_all_entities_filter().map(|filter| {
+        trace!("on_entity_destroyed {}", entity);
+        if let Some(filter) = self.get_all_entities_filter() {
             if let Some(matched_entities) = &mut filter.matched_entities {
                 matched_entities.remove(&entity);
             }
-            if let Some(disappear_events) = &mut filter.disappear_events {
-                disappear_events.entry(entity).or_default().extend(causes);
-            }
-            filter.unique_key
-        });
-        if let Some(key) = relevant_key {
-            self.with_new_disappear_events.insert(key);
         }
     }
 

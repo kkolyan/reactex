@@ -155,7 +155,7 @@ impl<'a> Entity<'a> {
         let volatile_world = &mut self.volatile.borrow_mut();
         volatile_world
             .deref_mut()
-            .remove_component::<TComponent>(self.key.export(), entity_storage.deref())
+            .remove_component::<TComponent>(self.key.export(), entity_storage.deref(), &self.stable.component_mappings)
             .unwrap()
     }
 

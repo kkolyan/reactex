@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use ctor::ctor;
-use reactex_core::world_mod::world::ConfigurableWorld;
+use reactex_core::world_mod::world::{ComponentError, ConfigurableWorld};
 
 use reactex_core::world_mod::world::EntityError;
 use reactex_core::world_mod::world::World;
@@ -92,6 +92,29 @@ fn component_cannot_be_deleted_from_uncommitted_entity() {
     assert_eq!(
         world.remove_component::<A>(entity),
         Err(WorldError::Entity(EntityError::NotCommitted))
+    )
+}
+
+#[test]
+fn uncommitted_component_can_be_deleted() {
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.execute_all();
+    world.add_component(entity, A::default()).unwrap();
+    assert_eq!(
+        world.remove_component::<A>(entity),
+        Ok(())
+    )
+}
+
+#[test]
+fn non_existent_component_cannot_be_deleted() {
+    let mut world = create_world();
+    let entity = world.create_entity();
+    world.execute_all();
+    assert_eq!(
+        world.remove_component::<A>(entity),
+        Err(WorldError::Component(ComponentError::NotFound))
     )
 }
 

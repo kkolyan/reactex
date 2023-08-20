@@ -32,16 +32,17 @@ use std::any::Any;
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 use std::mem;
 use std::ops::Deref;
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
+use log::trace;
 
 pub struct VolatileWorld {
     entity_component_index: EntityComponentIndex,
-    pub(crate) entities_to_destroy: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
+    pub(crate) entities_to_destroy: DeleteQueue<InternalEntityKey>,
     entities_to_commit: HashMap<InternalEntityKey, OptTinyVec<Cause>>,
-    pub(crate) components_to_delete: DeleteQueue,
+    pub(crate) components_to_delete: DeleteQueue<ComponentKey>,
     pub(crate) components_to_add: HashMap<ComponentKey, OptTinyVec<ComponentAdd>>,
     pub(crate) components_to_modify: HashMap<ComponentKey, OptTinyVec<ComponentModify>>,
     pub(crate) component_data_uncommitted: ComponentPoolManager<TempComponentDataKey>,
@@ -51,6 +52,7 @@ pub struct VolatileWorld {
 }
 
 static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
+pub(crate) static COMPONENT_NAMES: RwLock<Option<HashMap<ComponentType, &'static str>>> = RwLock::new(None);
 
 pub fn register_type(registration: fn(&mut World)) {
     COMPONENT_TYPE_REGISTRATIONS
@@ -79,6 +81,12 @@ impl World {
     }
 
     pub fn register_component<T: EcsComponent>(&mut self) {
+        let mut guard = COMPONENT_NAMES.write().unwrap();
+        if guard.is_none() {
+            *guard = Some(HashMap::new());
+        }
+        guard.as_mut().unwrap().entry(T::get_component_type()).or_insert(T::NAME);
+
         self.stable.component_data.init_pool::<T>("live components");
         self.volatile
             .component_data_uncommitted
@@ -103,7 +111,7 @@ pub struct StableWorld {
     pub(crate) on_disappear: HashMap<InternalFilterKey, Vec<EventHandler>>,
     pub(crate) sequence: Vec<Step>,
     component_data_pumps:
-        HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
+    HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
 }
 
 impl StableWorld {
@@ -165,9 +173,9 @@ impl VolatileWorld {
     pub fn new() -> Self {
         VolatileWorld {
             entity_component_index: EntityComponentIndex::new(512, 8),
-            entities_to_destroy: Default::default(),
+            entities_to_destroy: DeleteQueue::new(),
             entities_to_commit: Default::default(),
-            components_to_delete: Default::default(),
+            components_to_delete: DeleteQueue::new(),
             components_to_add: Default::default(),
             components_to_modify: Default::default(),
             component_data_uncommitted: Default::default(),
@@ -179,15 +187,30 @@ impl VolatileWorld {
 }
 
 #[derive(Default)]
-pub struct DeleteQueue {
-    pub(crate) before_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
-    after_disappear: HashMap<ComponentKey, OptTinyVec<Cause>>,
+pub struct DeleteQueue<TKey> {
+    pub(crate) before_disappear: HashMap<TKey, OptTinyVec<Cause>>,
+    after_disappear: HashMap<TKey, OptTinyVec<Cause>>,
+}
+
+impl<TKey> DeleteQueue<TKey> {
+    fn new() -> DeleteQueue<TKey> {
+        DeleteQueue {
+            before_disappear: HashMap::new(),
+            after_disappear: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ComponentKey {
     pub(crate) entity: InternalEntityKey,
     pub(crate) component_type: ComponentType,
+}
+
+impl Display for ComponentKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}<{}>", self.entity, self.component_type)
+    }
 }
 
 impl ComponentKey {
@@ -215,6 +238,7 @@ pub struct EventHandler {
 }
 
 pub struct Signal {
+    pub type_name: &'static str,
     pub payload_type: TypeId,
     pub data_key: SignalDataKey,
     pub cause: Cause,
@@ -232,14 +256,7 @@ pub type WorldResult<T = ()> = Result<T, WorldError>;
 #[Error]
 #[derive(Eq, PartialEq)]
 pub enum ComponentError {
-    NotFound(#[from] ComponentNotFoundError),
-}
-
-#[Error]
-#[derive(Eq, PartialEq)]
-pub enum ComponentNotFoundError {
-    Mapping,
-    Data,
+    NotFound,
 }
 
 impl VolatileWorld {
@@ -249,6 +266,8 @@ impl VolatileWorld {
         change: impl FnOnce(&mut T) + 'static,
         entity_storage: &EntityStorage,
     ) -> WorldResult {
+        trace!("modify component {}<{}>", entity, T::NAME);
+
         let entity = entity.validate(entity_storage, DenyUncommitted)?;
 
         self.components_to_modify
@@ -270,6 +289,8 @@ impl VolatileWorld {
         component: T,
         entity_storage: &EntityStorage,
     ) -> WorldResult {
+        trace!("add component {}<{}>", entity, T::NAME);
+
         let entity = entity.validate(entity_storage, AllowUncommitted)?;
 
         let data = self
@@ -295,7 +316,10 @@ impl VolatileWorld {
         &mut self,
         entity: EntityKey,
         entity_storage: &EntityStorage,
+        component_mappings: &ComponentMappingStorage,
     ) -> WorldResult {
+        trace!("remove component {}<{}>", entity, T::NAME);
+
         let entity = entity.validate(entity_storage, DenyUncommitted)?;
 
         let removed_uncommitted = self
@@ -303,6 +327,9 @@ impl VolatileWorld {
             .remove(&ComponentKey::of::<T>(entity))
             .is_some();
         if !removed_uncommitted {
+            if !component_mappings.has_component_no_validation(entity.index, T::get_component_type()) {
+                return Err(WorldError::Component(ComponentError::NotFound));
+            }
             self.components_to_delete
                 .before_disappear
                 .entry(ComponentKey::of::<T>(entity))
@@ -318,12 +345,14 @@ impl VolatileWorld {
         &mut self,
         entity_storage: &mut EntityStorage,
     ) -> InternalEntityKey {
+        trace!("create entity");
         let entity = entity_storage.new_entity();
         self.entity_component_index.add_entity(entity.index);
         self.entities_to_commit
             .entry(entity)
             .or_default()
             .push(self.current_cause.clone());
+        trace!("entity created: {}", entity);
         entity
     }
 
@@ -332,6 +361,7 @@ impl VolatileWorld {
         entity: EntityKey,
         entity_storage: &mut EntityStorage,
     ) -> WorldResult {
+        trace!("destroy entity: {}", entity);
         let entity = entity.validate(entity_storage, AllowUncommitted)?;
         if entity_storage.is_not_committed(entity.index) {
             // component data is not deleted here, because it will be deleted at once later
@@ -340,6 +370,7 @@ impl VolatileWorld {
             entity_storage.delete_entity_data(entity.index);
         } else {
             self.entities_to_destroy
+                .before_disappear
                 .entry(entity)
                 .or_default()
                 .push(Cause::consequence(
@@ -467,6 +498,7 @@ impl World {
     }
 }
 
+#[derive(Debug)]
 enum ComponentEventType {
     Appear,
     Disappear,
@@ -497,6 +529,7 @@ fn invoke_handlers(
                 let events = events.as_mut().map(mem::take);
                 if let Some(events) = events {
                     for (entity, causes) in events {
+                        trace!("invoke event {:?} for {}", event_type, entity);
                         let new_cause = Cause::consequence(handler.name, causes);
                         let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
                         (handler.callback)(entity.export(), stable, volatile);
@@ -510,7 +543,7 @@ fn invoke_handlers(
 
 impl World {
     pub(crate) fn flush_entity_destroy_actions(&mut self) {
-        for (entity, causes) in mem::take(&mut self.volatile.entities_to_destroy) {
+        for (entity, causes) in mem::take(&mut self.volatile.entities_to_destroy.after_disappear) {
             self.stable
                 .entity_storage
                 .get_mut()
@@ -524,7 +557,7 @@ impl World {
 
     pub(crate) fn flush_component_removals(&mut self) {
         for (component_key, causes) in
-            mem::take(&mut self.volatile.components_to_delete.after_disappear)
+        mem::take(&mut self.volatile.components_to_delete.after_disappear)
         {
             let data_key = self
                 .stable
@@ -555,16 +588,19 @@ impl World {
 
     pub(crate) fn generate_disappear_events(&mut self) {
         for (component_key, causes) in
-            mem::take(&mut self.volatile.components_to_delete.before_disappear)
+        mem::take(&mut self.volatile.components_to_delete.before_disappear)
         {
             self.stable
                 .filter_manager
                 .get_mut()
-                .generate_disappear_events(FilterComponentChange {
-                    component_key,
-                    // TODO consider avoid cloning
-                    causes: causes.clone(),
-                });
+                .generate_disappear_events(
+                    FilterComponentChange {
+                        component_key,
+                        // TODO consider avoid cloning
+                        causes: causes.clone(),
+                    },
+                    &self.volatile.entity_component_index,
+                );
             self.volatile
                 .components_to_delete
                 .after_disappear
@@ -573,25 +609,33 @@ impl World {
     }
 
     pub(crate) fn schedule_destroyed_entities_component_removal(&mut self) {
-        for (entity, causes) in mem::take(&mut self.volatile.entities_to_destroy) {
+        for (entity, causes) in mem::take(&mut self.volatile.entities_to_destroy.before_disappear) {
             for component_type in self
                 .volatile
                 .entity_component_index
                 .get_component_types(entity.index)
             {
+                let component_key = ComponentKey {
+                    entity,
+                    component_type,
+                };
                 let existing_causes = self
                     .volatile
                     .components_to_delete
                     .before_disappear
-                    .entry(ComponentKey {
-                        entity,
-                        component_type,
-                    })
+                    .entry(component_key)
                     .or_default();
                 for cause in causes.clone() {
+                    trace!("scheduling removal of {} due to entity destroy", component_key);
                     existing_causes.push(cause);
                 }
             }
+            self.volatile.entities_to_destroy.after_disappear.entry(entity)
+                .or_default()
+                .extend(causes.clone());
+
+            self.stable.filter_manager.get_mut()
+                .generate_entity_disappear_events(entity, causes);
         }
     }
 

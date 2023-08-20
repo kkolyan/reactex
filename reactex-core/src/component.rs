@@ -1,4 +1,5 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
+use crate::world_mod::world::COMPONENT_NAMES;
 
 pub trait EcsComponent: 'static {
     const INDEX: u16;
@@ -43,4 +44,12 @@ pub const fn sort_component_types<const N: usize>(
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Ord, PartialOrd)]
 pub struct ComponentType {
     pub(crate) index: u16,
+}
+
+impl Display for ComponentType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let guard = COMPONENT_NAMES.read().unwrap();
+        let map = guard.as_ref().unwrap();
+        write!(f, "{}", map.get(self).unwrap())
+    }
 }

@@ -1,9 +1,8 @@
 use crate::cause::Cause;
-use crate::pools::SpecificPool;
 use crate::world_mod::signal_queue::SignalQueue;
-use crate::world_mod::signal_storage::SignalDataKey;
 use crate::world_mod::signal_storage::SignalStorage;
-use std::any::TypeId;
+use std::any::{type_name, TypeId};
+use log::trace;
 
 pub struct SignalSender<'a> {
     pub(crate) signal_queue: &'a mut SignalQueue,
@@ -13,12 +12,13 @@ pub struct SignalSender<'a> {
 
 impl<'a> SignalSender<'a> {
     pub fn signal<T: 'static>(&mut self, payload: T) {
+        trace!("enqueueing signal");
         let cause = self.current_cause;
         let data_key = self
             .signal_storage
             .payloads
-            .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()))
+            .get_mut(&TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("there is not handlers for signal {}", type_name::<T>()))
             .specializable_mut()
             .try_specialize::<T>()
             .unwrap()

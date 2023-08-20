@@ -27,7 +27,7 @@ pub fn configure_pipeline(world: &mut World) {
     step_simple_b!(world, invoke_disappear_handlers);
     step_simple_b!(world, flush_component_removals);
     add_goto(world, "check_destroyed_entities_early",
-        |world| !world.entities_to_destroy.is_empty(),
+        |world| !world.entities_to_destroy.before_disappear.is_empty(),
         schedule_destroyed_entities_component_removal,
     );
     add_goto( world, "check_removed_components_early",
@@ -40,7 +40,7 @@ pub fn configure_pipeline(world: &mut World) {
     step_simple_b!(world, flush_component_modification);
     step_simple_b!(world, invoke_appear_handlers);
     add_goto(world, "check_destroyed_entities_late",
-        |world| !world.entities_to_destroy.is_empty(),
+        |world| !world.entities_to_destroy.before_disappear.is_empty(),
         schedule_destroyed_entities_component_removal,
     );
     add_goto(world,"check_removed_components_late",

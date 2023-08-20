@@ -9,6 +9,7 @@ use crate::world_mod::world::EntityError::NotExists;
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Not;
+use log::trace;
 
 pub(crate) struct EntityStorage {
     entities: Box<[EntityBox]>,
@@ -73,6 +74,7 @@ impl EntityStorage {
     }
 
     pub fn new_entity(&mut self) -> InternalEntityKey {
+        trace!("creating new entity");
         let index = match self.holes.pop_front() {
             None => {
                 let index = self.allocation_boundary;
@@ -96,12 +98,14 @@ impl EntityStorage {
         entity.committed = false;
         entity.generation.increment();
 
-        InternalEntityKey {
+        let key = InternalEntityKey {
             index: EntityIndex {
                 index: index as u32,
             },
             generation: entity.generation,
-        }
+        };
+        trace!("entity created {}", key);
+        key
     }
 
     pub fn is_not_committed(&self, key: EntityIndex) -> bool {
@@ -113,6 +117,7 @@ impl EntityStorage {
     }
 
     pub fn delete_entity_data(&mut self, key: EntityIndex) {
+        trace!("deleting entity data {}", key);
         let key = key.index as usize;
         self.entities.get_mut(key).unwrap().exists = false;
         if key == self.allocation_boundary - 1 {
@@ -123,6 +128,7 @@ impl EntityStorage {
     }
 
     pub fn mark_committed(&mut self, entity_key: EntityIndex) {
+        trace!("marking entity committed {}", entity_key);
         self.entities
             .get_mut(entity_key.index as usize)
             .unwrap()

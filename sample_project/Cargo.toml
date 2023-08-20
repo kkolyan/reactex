@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 reactex-core = { path = "../reactex-core" }
+log4rs = { version = "1.2.0", features = ["pattern_encoder"] }

@@ -1,8 +1,16 @@
+use std::fmt::{Display, Formatter};
+use to_vec::ToVec;
 use crate::component::ComponentType;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FilterDesc {
     pub(crate) component_types: &'static [ComponentType],
+}
+
+impl Display for FilterDesc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ecs_filter!( {} )", self.component_types.iter().map(|it| format!("{}", it)).to_vec().join(", "))
+    }
 }
 
 impl FilterDesc {
