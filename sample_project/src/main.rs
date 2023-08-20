@@ -137,6 +137,7 @@ struct D {
     x: i32,
 }
 
+// #[enable_queries] in method is needed for #[query(ctx)] to work (it does all transformations and query is just a marker attribute).
 #[enable_queries]
 fn main() {
     log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
@@ -160,6 +161,11 @@ fn main() {
 
     ecs.execute_once(|ctx| {
         let mut d = D { x: 0 };
+
+        // query-annotated closure  is invoked right here for all matched entities.
+        // matching is performed by the same rules as for signal handlers with the exception
+        // that there is not any signal here.
+        // note that query reads only committed changes.
 
         #[query(ctx)]
         |a: &A, c: &C, entity: Entity| {
