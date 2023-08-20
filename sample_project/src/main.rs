@@ -140,7 +140,7 @@ struct D {
 // #[enable_queries] in method is needed for #[query(ctx)] to work (it does all transformations and query is just a marker attribute).
 #[enable_queries]
 fn main() {
-    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
+    let _ = log4rs::init_file("log4rs.yaml", Default::default());
 
     let mut ecs = EcsContainer::create()
         // register your module (or N of them)
