@@ -1,5 +1,6 @@
 use crate::entity_key::EntityKey;
 use crate::internal::cause::Cause;
+use crate::internal::execution::invoke_user_code;
 use crate::Ctx;
 use std::any::Any;
 use std::cell::RefCell;
@@ -64,15 +65,20 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
             .unwrap();
 
         for handler in &self.global_handlers {
-            let new_cause = Cause::consequence(handler.name, [signal.cause.clone()]);
-            let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
-            let ctx = Ctx {
-                signal: &payload,
-                stable,
-                volatile: &RefCell::new(volatile),
-            };
-            (handler.callback)(ctx);
-            volatile.current_cause = prev_cause;
+            invoke_user_code(
+                volatile,
+                handler.name,
+                [signal.cause.clone()],
+                [()],
+                |volatile, _| {
+                    let ctx = Ctx {
+                        signal: &payload,
+                        stable,
+                        volatile: &RefCell::new(volatile),
+                    };
+                    (handler.callback)(ctx);
+                },
+            );
         }
 
         for (filter, handlers) in &self.handlers {
@@ -82,20 +88,20 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
                     .get_filter_by_key(*filter)
                     .matched_entities
                 {
-                    let new_cause =
-                        Cause::consequence(handler.name, [volatile.current_cause.clone()]);
-                    let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
-
-                    for entity in matched_entities {
-                        let ctx = Ctx {
-                            signal: &payload,
-                            stable,
-                            volatile: &RefCell::new(volatile),
-                        };
-                        (handler.callback)(ctx, entity.export());
-                    }
-
-                    volatile.current_cause = prev_cause;
+                    invoke_user_code(
+                        volatile,
+                        handler.name,
+                        [signal.cause.clone()],
+                        matched_entities,
+                        |volatile, entity| {
+                            let ctx = Ctx {
+                                signal: &payload,
+                                stable,
+                                volatile: &RefCell::new(volatile),
+                            };
+                            (handler.callback)(ctx, entity.export());
+                        },
+                    );
                 }
             }
         }

@@ -2,6 +2,7 @@ use crate::component::ComponentType;
 use crate::filter::FilterDesc;
 use crate::internal::cause::Cause;
 use crate::internal::component_key::ComponentKey;
+use crate::internal::execution::invoke_user_code;
 use crate::internal::filter_manager_events::FilterComponentChange;
 use crate::internal::world_extras::ComponentEventType;
 use crate::internal::world_pipeline;
@@ -182,15 +183,20 @@ impl World {
                     if let Some(events) = events {
                         for (entity, causes) in events {
                             trace!("invoke event {:?} for {}", event_type, entity);
-                            let new_cause = Cause::consequence(handler.name, causes);
-                            let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
-                            let ctx = Ctx {
-                                signal: &(),
-                                stable,
-                                volatile: &RefCell::new(volatile),
-                            };
-                            (handler.callback)(ctx, entity.export());
-                            volatile.current_cause = prev_cause;
+                            invoke_user_code(
+                                volatile,
+                                handler.name,
+                                causes,
+                                [()],
+                                |volatile, _| {
+                                    let ctx = Ctx {
+                                        signal: &(),
+                                        stable,
+                                        volatile: &RefCell::new(volatile),
+                                    };
+                                    (handler.callback)(ctx, entity.export());
+                                },
+                            );
                         }
                     }
                 }

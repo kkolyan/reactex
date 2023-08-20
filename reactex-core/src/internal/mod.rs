@@ -4,6 +4,7 @@ pub(crate) mod component_mappings;
 pub(crate) mod component_pool_manager;
 pub(crate) mod entity_component_index;
 pub(crate) mod entity_storage;
+pub(crate) mod execution;
 pub(crate) mod filter;
 pub(crate) mod filter_manager;
 pub(crate) mod filter_manager_events;

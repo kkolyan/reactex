@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Cause {
-    #[allow(dead_code)]
-    inner: Rc<RefCell<CauseInner>>,
+    // #[allow(dead_code)]
+    // inner: Rc<RefCell<CauseInner>>,
 }
 
 #[allow(dead_code)]
@@ -17,10 +17,10 @@ struct CauseInner {
 impl Cause {
     pub fn initial() -> Cause {
         Cause {
-            inner: Rc::new(RefCell::new(CauseInner {
-                title: "initial",
-                reasons: OptTinyVec::default(),
-            })),
+            // inner: Rc::new(RefCell::new(CauseInner {
+            //     title: "initial",
+            //     reasons: OptTinyVec::default(),
+            // })),
         }
     }
 
@@ -29,10 +29,10 @@ impl Cause {
         causes: impl IntoIterator<Item = Cause>,
     ) -> Cause {
         Cause {
-            inner: Rc::new(RefCell::new(CauseInner {
-                title,
-                reasons: OptTinyVec::from_iterable(causes),
-            })),
+            // inner: Rc::new(RefCell::new(CauseInner {
+            //     title,
+            //     reasons: OptTinyVec::from_iterable(causes),
+            // })),
         }
     }
 }
