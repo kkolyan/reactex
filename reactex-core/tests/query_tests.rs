@@ -1,8 +1,7 @@
 #![allow(non_snake_case)]
 
-use reactex_core::filter::filter_desc::ecs_filter;
-use reactex_core::world_mod::world::register_query;
-use reactex_core::world_mod::world::ConfigurableWorld;
+use reactex_core::{ecs_filter, World};
+use reactex_core::ConfigurableWorld;
 use reactex_macro::EcsComponent;
 
 #[derive(EcsComponent, Debug, Default)]
@@ -14,7 +13,7 @@ struct B {}
 #[test]
 fn CommittedEntityQueriedByPreCreatedQuery() {
     let query_A = ecs_filter!(A);
-    register_query(query_A);
+    World::register_query(query_A);
 
     let mut world = ConfigurableWorld::new().seal();
 
@@ -34,7 +33,7 @@ fn CommittedEntityQueriedByPreCreatedQuery() {
 fn CommittedEntityQueriedByLateQuery() {
     let query_A = ecs_filter!(A);
 
-    register_query(query_A);
+    World::register_query(query_A);
     let mut world = ConfigurableWorld::new().seal();
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
@@ -49,7 +48,7 @@ fn CommittedEntityQueriedByLateQuery() {
 #[test]
 fn UnCommittedEntityNotShown() {
     let query_A = ecs_filter!(A);
-    register_query(query_A);
+    World::register_query(query_A);
     let mut world = ConfigurableWorld::new().seal();
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
@@ -63,7 +62,7 @@ fn UnCommittedEntityNotShown() {
 #[test]
 fn ANotMatchesB() {
     let query_B = ecs_filter!(B);
-    register_query(query_B);
+    World::register_query(query_B);
     let mut world = ConfigurableWorld::new().seal();
     let eA = world.create_entity();
     world.add_component(eA, A::default()).unwrap();
@@ -80,7 +79,7 @@ fn ANotMatchesB() {
 #[test]
 fn EmptyNotMatches() {
     let query_B = ecs_filter!(B);
-    register_query(query_B);
+    World::register_query(query_B);
     let mut world = ConfigurableWorld::new().seal();
     world.create_entity();
     let eB = world.create_entity();
@@ -96,7 +95,7 @@ fn EmptyNotMatches() {
 #[test]
 fn ABMatchesAB() {
     let query_AB = ecs_filter!(A, B);
-    register_query(query_AB);
+    World::register_query(query_AB);
     let mut world = ConfigurableWorld::new().seal();
     let eAB = world.create_entity();
     world.add_component(eAB, A::default()).unwrap();
@@ -112,7 +111,7 @@ fn ABMatchesAB() {
 #[test]
 fn ANotMatchedToAB() {
     let query_AB = ecs_filter!(A, B);
-    register_query(query_AB);
+    World::register_query(query_AB);
     let mut world = ConfigurableWorld::new().seal();
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
@@ -127,7 +126,7 @@ fn ANotMatchedToAB() {
 #[test]
 fn ABMatchedToA() {
     let query_A = ecs_filter!(A);
-    register_query(query_A);
+    World::register_query(query_A);
     let mut world = ConfigurableWorld::new().seal();
     let eAB = world.create_entity();
     world.add_component(eAB, A::default()).unwrap();
@@ -143,7 +142,7 @@ fn ABMatchedToA() {
 #[test]
 fn EmptyMatchesEmpty() {
     let query_all = ecs_filter!();
-    register_query(query_all);
+    World::register_query(query_all);
     let mut world = ConfigurableWorld::new().seal();
     let eEmpty = world.create_entity();
     world.execute_all();
@@ -157,7 +156,7 @@ fn EmptyMatchesEmpty() {
 #[test]
 fn AMatchesEmpty() {
     let query_all = ecs_filter!();
-    register_query(query_all);
+    World::register_query(query_all);
     let mut world = ConfigurableWorld::new().seal();
     let eA = world.create_entity();
     world.add_component(eA, A::default()).unwrap();

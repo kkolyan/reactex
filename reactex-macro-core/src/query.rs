@@ -20,7 +20,6 @@ use syn::Block;
 use syn::Error;
 use syn::Expr;
 use syn::ExprClosure;
-use syn::Item;
 use syn::ItemFn;
 use syn::Meta;
 use syn::Pat;
@@ -122,13 +121,13 @@ fn transform_closure(
                 let #name = __entity__.get::<#ty>().unwrap();
             },
             ArgumentType::ComponentMutableWrapper(ty) => quote! {
-                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__).unwrap();
+                let #name = ::reactex_core::Mut::<#ty>::try_new(__entity__).unwrap();
             },
             ArgumentType::OptionalComponentReference(ty) => quote! {
                 let #name = __entity__.get::<#ty>();
             },
             ArgumentType::OptionalComponentMutableWrapper(ty) => quote! {
-                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__);
+                let #name = ::reactex_core::Mut::<#ty>::try_new(__entity__);
             },
         });
     }
@@ -137,7 +136,7 @@ fn transform_closure(
 
     visitor.registratons.push(
         parse2::<Stmt>(quote! {
-            reactex_core::world_mod::world::register_query(#ecs_filter);
+            ::reactex_core::World::register_query(#ecs_filter);
         })
         .unwrap(),
     );
@@ -159,7 +158,7 @@ fn transform_closure(
             .unwrap();
     visitor.next_wrapper_id += 1;
     let wrapper = quote! {
-        fn #wrapper_name(#ctx: ::reactex_core::facade_2_0::Ctx, mut callback: impl FnMut(#arg_decls)) {
+        fn #wrapper_name(#ctx: ::reactex_core::Ctx, mut callback: impl FnMut(#arg_decls)) {
             #ctx.query(#ecs_filter, |entity_key| {
                 let __entity__ = #ctx.get_entity(entity_key).unwrap();
                 #assignments

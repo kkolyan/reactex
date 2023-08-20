@@ -1,12 +1,11 @@
 use std::fmt::Debug;
 
 use ctor::ctor;
-use reactex_core::world_mod::world::ComponentError;
-use reactex_core::world_mod::world::ConfigurableWorld;
-
-use reactex_core::world_mod::world::EntityError;
-use reactex_core::world_mod::world::World;
-use reactex_core::world_mod::world::WorldError;
+use reactex_core::ConfigurableWorld;
+use reactex_core::ComponentError;
+use reactex_core::EntityError;
+use reactex_core::World;
+use reactex_core::WorldError;
 use reactex_macro::EcsComponent;
 
 #[derive(Default, Debug, EcsComponent)]

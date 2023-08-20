@@ -1,20 +1,19 @@
 #![allow(clippy::explicit_auto_deref)]
 #![feature(proc_macro_hygiene)]
 
-use reactex_core::entity::EntityKey;
-use reactex_core::facade_2_0::ecs_module;
-use reactex_core::facade_2_0::Ctx;
-use reactex_core::facade_2_0::EcsContainer;
-use reactex_core::facade_2_0::Entity;
-use reactex_core::facade_2_0::Mut;
-use reactex_core::facade_2_0::UncommittedEntity;
-use reactex_core::reactex_macro::enable_queries;
-use reactex_core::reactex_macro::on_appear;
-use reactex_core::reactex_macro::on_disappear;
-use reactex_core::reactex_macro::on_signal;
-use reactex_core::reactex_macro::on_signal_global;
-use reactex_core::reactex_macro::query;
-use reactex_core::reactex_macro::EcsComponent;
+use reactex_core::EcsContainer;
+use reactex_core::Ctx;
+use reactex_core::Entity;
+use reactex_core::EntityKey;
+use reactex_core::Mut;
+use reactex_core::UncommittedEntity;
+use reactex_core::ecs_module;
+use reactex_core::enable_queries;
+use reactex_core::on_appear;
+use reactex_core::on_disappear;
+use reactex_core::on_signal;
+use reactex_core::on_signal_global;
+use reactex_core::EcsComponent;
 
 // all ECS systems are bound to some module ID. this ID could be used to register all associated
 // ECS systems at once at ECS initialization.

@@ -1,4 +1,4 @@
-use crate::world_mod::world::COMPONENT_NAMES;
+use crate::internal::world_core::COMPONENT_NAMES;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;

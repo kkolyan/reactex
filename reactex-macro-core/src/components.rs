@@ -34,17 +34,17 @@ pub fn derive_ecs_component(item: TokenStream, module_path: &str, types_file: &s
     let register_type_callback = format_ident!("register_type_callback_{}", ty.to_string());
     let register_type = format_ident!("register_type_{}", ty.to_string());
     quote! {
-        impl ::reactex_core::component::EcsComponent for #ty {
+        impl ::reactex_core::EcsComponent for #ty {
             const NAME: &'static str = #ty_str;
             const INDEX: u16 = #index + 1;
         }
 
         #[::reactex_core::ctor::ctor]
         fn #register_type_callback() {
-            ::reactex_core::world_mod::world::register_type(#register_type);
+            ::reactex_core::World::register_type(#register_type);
         }
 
-        fn #register_type(world: &mut ::reactex_core::world_mod::world::World) {
+        fn #register_type(world: &mut ::reactex_core::World) {
             world.register_component::<#ty>();
         }
     }

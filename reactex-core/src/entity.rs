@@ -1,74 +1,66 @@
-use crate::world_mod::entity_storage::EntityStorage;
-use crate::world_mod::entity_storage::ValidateUncommitted;
-use crate::world_mod::world::EntityError;
-use std::fmt::Debug;
-use std::fmt::Display;
-use std::fmt::Formatter;
+use crate::component::EcsComponent;
+use crate::entity_key::EntityKey;
+use crate::internal::world_extras::InternalEntityKey;
+use crate::StableWorld;
+use crate::VolatileWorld;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct EntityKey {
-    inner: InternalEntityKey,
+#[derive(Copy, Clone)]
+pub struct Entity<'a> {
+    pub(crate) key: InternalEntityKey,
+    pub(crate) stable: &'a StableWorld,
+    pub(crate) volatile: &'a RefCell<&'a mut VolatileWorld>,
 }
 
-impl Display for EntityKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub(crate) struct InternalEntityKey {
-    pub(crate) index: EntityIndex,
-    pub(crate) generation: EntityGeneration,
-}
-
-impl Display for InternalEntityKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.index.index, self.generation.0)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub(crate) struct EntityGeneration(u16);
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub(crate) struct EntityIndex {
-    pub(crate) index: u32,
-}
-
-impl Display for EntityIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:_", self.index)
-    }
-}
-
-impl InternalEntityKey {
-    pub fn export(&self) -> EntityKey {
-        let index = self.index;
-        let generation = self.generation;
-        EntityKey {
-            inner: InternalEntityKey { index, generation },
-        }
-    }
-}
-
-impl EntityKey {
-    pub(crate) fn validate(
-        &self,
-        entity_storage: &EntityStorage,
-        uncommitted: ValidateUncommitted,
-    ) -> Result<InternalEntityKey, EntityError> {
-        entity_storage.validate(self.inner, uncommitted)?;
-        Ok(self.inner)
-    }
-}
-
-impl EntityGeneration {
-    pub fn new() -> Self {
-        EntityGeneration(0)
+impl<'a> Entity<'a> {
+    pub fn key(self) -> EntityKey {
+        self.key.export()
     }
 
-    pub fn increment(&mut self) {
-        self.0 += 1;
+    pub fn destroy(self) {
+        let entity_storage = &mut self.stable.entity_storage.borrow_mut();
+        let volatile_world = &mut self.volatile.borrow_mut();
+        volatile_world
+            .destroy_entity(self.key.export(), entity_storage.deref_mut())
+            .unwrap();
+    }
+
+    pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
+        let entity_storage = self.stable.entity_storage.borrow();
+        let volatile_world = &mut self.volatile.borrow_mut();
+        volatile_world
+            .deref_mut()
+            .add_component(self.key.export(), value, entity_storage.deref())
+            .unwrap();
+    }
+
+    pub fn get<TComponent: EcsComponent>(&self) -> Option<&TComponent> {
+        self.stable
+            .get_component::<TComponent>(self.key.export())
+            .unwrap()
+    }
+
+    pub fn remove<TComponent: EcsComponent>(&self) {
+        let entity_storage = self.stable.entity_storage.borrow();
+        let volatile_world = &mut self.volatile.borrow_mut();
+        volatile_world
+            .deref_mut()
+            .remove_component::<TComponent>(
+                self.key.export(),
+                entity_storage.deref(),
+                &self.stable.component_mappings,
+            )
+            .unwrap()
+    }
+
+    pub fn modify<TComponent: EcsComponent>(&self, change: impl FnOnce(&mut TComponent) + 'static) {
+        let entity_storage = self.stable.entity_storage.borrow();
+        let volatile_world = &mut self.volatile.borrow_mut();
+        volatile_world
+            .deref_mut()
+            .modify_component::<TComponent>(self.key.export(), change, entity_storage.deref())
+            .unwrap()
     }
 }

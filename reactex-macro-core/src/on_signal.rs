@@ -225,13 +225,13 @@ fn generate_registration_new(
                 let #name = __entity__.get::<#ty>().unwrap();
             },
             ArgumentType::ComponentMutableWrapper(ty) => quote! {
-                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__).unwrap();
+                let #name = ::reactex_core::Mut::<#ty>::try_new(__entity__).unwrap();
             },
             ArgumentType::OptionalComponentReference(ty) => quote! {
                 let #name = __entity__.get::<#ty>();
             },
             ArgumentType::OptionalComponentMutableWrapper(ty) => quote! {
-                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__);
+                let #name = ::reactex_core::Mut::<#ty>::try_new(__entity__);
             },
         },
     ));
@@ -338,7 +338,12 @@ fn generate_registration_new(
     let registration = match event_type {
         EventType::OnSignal => {
             quote! {
-                fn wrapper(signal: &#signal_type, entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                fn wrapper(
+                    signal: &#signal_type,
+                    entity: reactex_core::EntityKey,
+                    stable: &reactex_core::StableWorld,
+                    volatile: &mut reactex_core::VolatileWorld
+                ) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(signal, stable, &volatile);
                     let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
@@ -350,7 +355,11 @@ fn generate_registration_new(
         }
         EventType::OnSignalGlobal => {
             quote! {
-                fn wrapper(signal: &#signal_type, stable: &reactex_core::world_mod::world::StableWorld,volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                fn wrapper(
+                    signal: &#signal_type,
+                    stable: &reactex_core::StableWorld,
+                    volatile: &mut reactex_core::VolatileWorld
+                ) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(signal, stable, &volatile);
                     #argument_mappings
@@ -361,7 +370,11 @@ fn generate_registration_new(
         }
         EventType::OnAppear => {
             quote! {
-                fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                fn wrapper(
+                    entity: reactex_core::EntityKey,
+                    stable: &reactex_core::StableWorld,
+                    volatile: &mut reactex_core::VolatileWorld
+                ) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(&(), stable, &volatile);
                     let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
@@ -373,7 +386,11 @@ fn generate_registration_new(
         }
         EventType::OnDisappear => {
             quote! {
-                fn wrapper(entity: reactex_core::entity::EntityKey, stable: &reactex_core::world_mod::world::StableWorld, volatile: &mut reactex_core::world_mod::world::VolatileWorld) {
+                fn wrapper(
+                    entity: reactex_core::EntityKey,
+                    stable: &reactex_core::StableWorld,
+                    volatile: &mut reactex_core::VolatileWorld
+                ) {
                     let volatile = std::cell::RefCell::new(volatile);
                     let __ctx__ = Ctx::new(&(), stable, &volatile);
                     let __entity__ = __ctx__.get_entity(entity).unwrap_or_else(|| panic!("entity not found: {}", entity));
@@ -388,7 +405,7 @@ fn generate_registration_new(
     Ok(quote! {
         #[::reactex_core::ctor::ctor]
         fn #registration_function_name() {
-            fn configure(world: &mut ::reactex_core::world_mod::world::ConfigurableWorld) {
+            fn configure(world: &mut ::reactex_core::ConfigurableWorld) {
                 #registration
             }
             #ecs_module_path.write().unwrap().add_configurator(configure);
@@ -407,6 +424,6 @@ pub(crate) fn ecs_filter_expression<'a>(iter: impl Iterator<Item = &'a Argument>
     });
     let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
     quote! {
-        ::reactex_core::filter::filter_desc::ecs_filter!(#components)
+        ::reactex_core::ecs_filter!(#components)
     }
 }
