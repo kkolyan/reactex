@@ -112,7 +112,7 @@ impl World {
             >::default());
     }
     fn register_filter(&mut self, filter: FilterDesc) {
-        self.stable.filter_manager.get_mut().get_filter(filter)
+        self.stable.filter_manager.get_filter(filter)
             .track_matched_entities(self.stable.entity_storage.get_mut(), &self.stable.component_mappings);
     }
 }
@@ -120,7 +120,7 @@ impl World {
 pub struct StableWorld {
     pub(crate) component_data: ComponentPoolManager<ComponentDataKey>,
     pub(crate) component_mappings: ComponentMappingStorage,
-    pub(crate) filter_manager: RefCell<FilterManager>,
+    pub(crate) filter_manager: FilterManager,
     pub(crate) entity_storage: RefCell<EntityStorage>,
     signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
     pub(crate) on_appear: HashMap<InternalFilterKey, Vec<EventHandler>>,
@@ -172,8 +172,7 @@ impl StableWorld {
     pub fn query(&self, filter: FilterDesc, mut callback: impl FnMut(EntityKey)) {
         for matched_entity in self
             .filter_manager
-            .borrow_mut()
-            .get_filter(filter)
+            .get_filter_unmut(filter)
             .matched_entities
             .as_ref()
             .unwrap_or_else(|| panic!("query is not initialized: {}", filter))
@@ -418,7 +417,6 @@ impl World {
                 .mark_committed(task.index);
             self.stable
                 .filter_manager
-                .get_mut()
                 .on_entity_created(task, causes);
         }
     }
@@ -484,7 +482,7 @@ impl World {
                 .entity_component_index
                 .add_component_type(component_key.entity.index, component_key.component_type);
 
-            self.stable.filter_manager.get_mut().on_component_added(
+            self.stable.filter_manager.on_component_added(
                 &self.volatile.entity_component_index,
                 FilterComponentChange {
                     component_key,
@@ -524,19 +522,18 @@ fn invoke_handlers(
     stable: &mut StableWorld,
     volatile: &mut VolatileWorld,
 ) {
-    let filter_manager = &mut stable.filter_manager.borrow_mut();
     let filters = mem::take(match event_type {
-        ComponentEventType::Appear => &mut filter_manager.with_new_appear_events,
-        ComponentEventType::Disappear => &mut filter_manager.with_new_disappear_events,
+        ComponentEventType::Appear => &mut stable.filter_manager.with_new_appear_events,
+        ComponentEventType::Disappear => &mut stable.filter_manager.with_new_disappear_events,
     });
     let handlers = match event_type {
         ComponentEventType::Appear => &stable.on_appear,
         ComponentEventType::Disappear => &stable.on_disappear,
     };
     for filter in filters {
-        let filter = filter_manager.get_filter_internal(filter);
-        if let Some(handlers) = handlers.get(&filter.unique_key) {
+        if let Some(handlers) = handlers.get(&filter) {
             for handler in handlers {
+                let filter = stable.filter_manager.get_filter_internal(filter);
                 let events = match event_type {
                     ComponentEventType::Appear => &mut filter.appear_events,
                     ComponentEventType::Disappear => &mut filter.disappear_events,
@@ -565,7 +562,6 @@ impl World {
                 .delete_entity_data(entity.index);
             self.stable
                 .filter_manager
-                .get_mut()
                 .on_entity_destroyed(entity, causes);
         }
     }
@@ -593,7 +589,6 @@ impl World {
                 .delete_component_type(component_key.entity.index, component_key.component_type);
             self.stable
                 .filter_manager
-                .get_mut()
                 .on_component_removed(FilterComponentChange {
                     component_key,
                     causes,
@@ -607,7 +602,6 @@ impl World {
         {
             self.stable
                 .filter_manager
-                .get_mut()
                 .generate_disappear_events(
                     FilterComponentChange {
                         component_key,
@@ -649,7 +643,7 @@ impl World {
                 .or_default()
                 .extend(causes.clone());
 
-            self.stable.filter_manager.get_mut()
+            self.stable.filter_manager
                 .generate_entity_disappear_events(entity, causes);
         }
     }

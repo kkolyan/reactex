@@ -76,8 +76,7 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
             for handler in handlers {
                 if let Some(matched_entities) = &stable
                     .filter_manager
-                    .borrow_mut()
-                    .get_filter_internal(*filter)
+                    .get_filter_by_key(*filter)
                     .matched_entities
                 {
                     let new_cause =

@@ -39,6 +39,18 @@ impl FilterManager {
         }
     }
 
+    pub(crate) fn get_filter_unmut(&self, key: FilterDesc) -> &Filter {
+        let key_ptr = key.component_types as *const _;
+        if let Some(filter_index) = self.by_key_ptr.get(&key_ptr) {
+            return self.owned.get(filter_index).unwrap();
+        }
+        panic!("filter not initialized: {}", key)
+    }
+
+    pub(crate) fn get_filter_by_key(&self, key: InternalFilterKey) -> &Filter {
+        return self.owned.get(&key).unwrap();
+    }
+
     pub fn get_filter(&mut self, key: FilterDesc) -> &mut Filter {
         let key_ptr = key.component_types as *const _;
         if let Some(filter_index) = self.by_key_ptr.get(&key_ptr) {
