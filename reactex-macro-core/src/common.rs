@@ -89,9 +89,11 @@ pub struct Argument(pub Pat, pub ArgumentType);
 
 pub enum ArgumentType {
     Ctx(Span, Option<Type>),
-    ComponentReference(Type),
     Entity(Span),
+    ComponentReference(Type),
     ComponentMutableWrapper(Type),
+    OptionalComponentReference(Type),
+    OptionalComponentMutableWrapper(Type),
 }
 
 pub struct Component {

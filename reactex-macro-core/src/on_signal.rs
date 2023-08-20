@@ -1,5 +1,5 @@
 use crate::common;
-use crate::common::Argument;
+use crate::common::{aggregate_errors, Argument};
 use crate::common::ArgumentType;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
@@ -77,12 +77,18 @@ pub(crate) fn extract_argument(arg: &PatType) -> Result<Argument> {
         Pat::Wild(it) => Pat::Wild(it.clone()),
         it => return Err(Error::new(it.span(), "invalid argument name")),
     };
-    let result = match arg.ty.deref() {
+    let ty = arg.ty.deref();
+    let ty = extract_argument_ty(ty)?;
+    Ok(Argument(arg_name, ty))
+}
+
+fn extract_argument_ty(ty: &Type) -> Result<ArgumentType> {
+    match ty {
         Type::Path(it) => {
             let it = it.path.segments.last().unwrap();
             if it.ident == "Ctx" {
                 let payload = extract_single_generic_argument_type(it)?;
-                Ok(Argument(arg_name, ArgumentType::Ctx(it.span(), payload)))
+                Ok(ArgumentType::Ctx(it.span(), payload))
             } else if it.ident == "Mut" {
                 let component = extract_single_generic_argument_type(it)?;
                 match component {
@@ -90,13 +96,30 @@ pub(crate) fn extract_argument(arg: &PatType) -> Result<Argument> {
                         it.span(),
                         "exactly one generic argument expected here",
                     )),
-                    Some(it) => Ok(Argument(
-                        arg_name,
-                        ArgumentType::ComponentMutableWrapper(it),
-                    )),
+                    Some(it) => Ok(ArgumentType::ComponentMutableWrapper(it)),
                 }
             } else if it.ident == "Entity" {
-                Ok(Argument(arg_name, ArgumentType::Entity(it.span())))
+                Ok(ArgumentType::Entity(it.span()))
+            } else if it.ident == "Option" {
+                let ty = extract_single_generic_argument_type(it)?;
+                match ty {
+                    None => Err(Error::new(it.span(), "invalid option signature")),
+                    Some(ty) => {
+                        let arg_ty = extract_argument_ty(&ty)?;
+                        match arg_ty {
+                            ArgumentType::Ctx(_, _)
+                            | ArgumentType::Entity(_)
+                            | ArgumentType::OptionalComponentReference(_)
+                            | ArgumentType::OptionalComponentMutableWrapper(_) => Err(Error::new(ty.span(), "invalid optional argument")),
+                            ArgumentType::ComponentReference(it) => {
+                                Ok(ArgumentType::OptionalComponentReference(it))
+                            }
+                            ArgumentType::ComponentMutableWrapper(it) => {
+                                Ok(ArgumentType::OptionalComponentMutableWrapper(it))
+                            }
+                        }
+                    }
+                }
             } else {
                 Err(Error::new(it.span(), "invalid argument type"))
             }
@@ -113,15 +136,11 @@ pub(crate) fn extract_argument(arg: &PatType) -> Result<Argument> {
                     "mutability is not allowed here. us Mut wrapper instead.",
                 ))
             } else {
-                Ok(Argument(
-                    arg_name,
-                    ArgumentType::ComponentReference(it.elem.deref().clone()),
-                ))
+                Ok(ArgumentType::ComponentReference(it.elem.deref().clone()))
             }
         }
         it => Err(Error::new(it.span(), "invalid argument type")),
-    };
-    result
+    }
 }
 
 fn extract_single_generic_argument_type(it: &PathSegment) -> Result<Option<Type>> {
@@ -159,7 +178,9 @@ fn generate_registration_new(
         ArgumentType::Entity(_) => true,
         ArgumentType::Ctx(_, _)
         | ArgumentType::ComponentReference(_)
-        | ArgumentType::ComponentMutableWrapper(_) => false,
+        | ArgumentType::ComponentMutableWrapper(_)
+        | ArgumentType::OptionalComponentReference(_)
+        | ArgumentType::OptionalComponentMutableWrapper(_) => false,
     });
     match event_type {
         EventType::OnSignalGlobal => {
@@ -194,21 +215,27 @@ fn generate_registration_new(
             ArgumentType::Ctx(_, _) => quote! {
                 let #name = __ctx__;
             },
+            ArgumentType::Entity(_) => quote! {
+                let #name = __entity__;
+            },
             ArgumentType::ComponentReference(ty) => quote! {
                 let #name = __entity__.get::<#ty>().unwrap();
             },
             ArgumentType::ComponentMutableWrapper(ty) => quote! {
-                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::new(__entity__);
+                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__).unwrap();
             },
-            ArgumentType::Entity(_) => quote! {
-                let #name = __entity__;
+            ArgumentType::OptionalComponentReference(ty) => quote! {
+                let #name = __entity__.get::<#ty>();
+            },
+            ArgumentType::OptionalComponentMutableWrapper(ty) => quote! {
+                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__);
             },
         },
     ));
 
     match event_type {
         EventType::OnSignalGlobal => {
-            let mut component_types = user_function
+            let errors = user_function
                 .args
                 .iter()
                 .filter_map(|Argument(_, ty)| match ty {
@@ -216,6 +243,8 @@ fn generate_registration_new(
                     ArgumentType::Entity(span) => Some(*span),
                     ArgumentType::ComponentReference(it) => Some(it.span()),
                     ArgumentType::ComponentMutableWrapper(it) => Some(it.span()),
+                    ArgumentType::OptionalComponentReference(it) => Some(it.span()),
+                    ArgumentType::OptionalComponentMutableWrapper(it) => Some(it.span()),
                 })
                 .map(|it| {
                     Error::new(
@@ -223,20 +252,17 @@ fn generate_registration_new(
                         "global events cannot be associated with any entities and components",
                     )
                 });
-
-            let error = component_types.next();
-            if let Some(mut error) = error {
-                error.extend(component_types);
-                return Err(error);
-            }
+            aggregate_errors(errors)?;
         }
         EventType::OnSignal | EventType::OnAppear | EventType::OnDisappear => {
             let entity_or_component_args_present =
                 user_function.args.iter().any(|Argument(_, ty)| match ty {
                     ArgumentType::Ctx(_, _) => false,
-                    ArgumentType::ComponentReference(_)
-                    | ArgumentType::Entity(_)
-                    | ArgumentType::ComponentMutableWrapper(_) => true,
+                    ArgumentType::Entity(_)
+                    | ArgumentType::ComponentReference(_)
+                    | ArgumentType::ComponentMutableWrapper(_)
+                    | ArgumentType::OptionalComponentReference(_)
+                    | ArgumentType::OptionalComponentMutableWrapper(_) => true,
                 });
             if !entity_or_component_args_present {
                 return Err(Error::new(
@@ -372,9 +398,11 @@ pub(crate) fn ecs_filter_expression<'a>(
 ) -> Option<TokenStream> {
     let components = iter.filter_map(|Argument(_, ty)| match ty {
         ArgumentType::Ctx(_, _) => None,
-        ArgumentType::ComponentReference(it) => Some(it),
         ArgumentType::Entity(_) => None,
+        ArgumentType::ComponentReference(it) => Some(it),
         ArgumentType::ComponentMutableWrapper(it) => Some(it),
+        ArgumentType::OptionalComponentReference(_) => None,
+        ArgumentType::OptionalComponentMutableWrapper(_) => None,
     });
     let components: Punctuated<&Type, Comma> = Punctuated::from_iter(components);
     Some(quote! {

@@ -107,15 +107,21 @@ fn transform_closure(
                     "Ctx is not allowed in queries - use one from the containing function",
                 ));
                 return Expr::Closure(closure);
-            }
+            },
+            ArgumentType::Entity(_) => quote! {
+                let #name = __entity__;
+            },
             ArgumentType::ComponentReference(ty) => quote! {
                 let #name = __entity__.get::<#ty>().unwrap();
             },
             ArgumentType::ComponentMutableWrapper(ty) => quote! {
-                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::new(__entity__);
+                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__).unwrap();
             },
-            ArgumentType::Entity(_) => quote! {
-                let #name = __entity__;
+            ArgumentType::OptionalComponentReference(ty) => quote! {
+                let #name = __entity__.get::<#ty>();
+            },
+            ArgumentType::OptionalComponentMutableWrapper(ty) => quote! {
+                let #name = ::reactex_core::facade_2_0::Mut::<#ty>::try_new(__entity__);
             },
         });
     }

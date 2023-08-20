@@ -111,12 +111,15 @@ impl<'a, TComponent: EcsComponent> Deref for Mut<'a, TComponent> {
 }
 
 impl<'a, TComponent: EcsComponent> Mut<'a, TComponent> {
-    pub fn new(entity: Entity<'a>) -> Self {
-        Mut {
+    pub fn try_new(entity: Entity<'a>) -> Option<Mut<'a, TComponent>> {
+        entity.get::<TComponent>()?;
+        Some(Mut {
             pd: Default::default(),
             entity,
-        }
+        })
     }
+
+
     pub fn modify(&self, change: impl FnOnce(&mut TComponent) + 'static) {
         self.entity.modify(change);
     }
@@ -180,7 +183,7 @@ impl<'a> UncommittedEntity<'a> {
             stable: self.stable,
             volatile: self.volatile,
         }
-        .destroy();
+            .destroy();
     }
 
     pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
@@ -189,7 +192,7 @@ impl<'a> UncommittedEntity<'a> {
             stable: self.stable,
             volatile: self.volatile,
         }
-        .add(value);
+            .add(value);
     }
 }
 

@@ -101,6 +101,16 @@ fn system2b(_ctx: Ctx<SomeSignal>, c: Mut<C>) {
     c.modify(|a: &mut C| a.value = 42);
 }
 
+#[on_signal(DEMO)]
+fn system2c(_ctx: Ctx<SomeSignal>, _a: &A, _b: Option<&B>) {
+    // invoked once per entity with A component, but provides shorthand to access B component if its present
+}
+
+#[on_signal(DEMO)]
+fn system2d(_ctx: Ctx<SomeSignal>, _a: &A, _b: Option<Mut<B>>) {
+    // optional can be mutable component wrapper
+}
+
 #[on_appear(DEMO)]
 fn system3b(_ctx: Ctx, _entity: Entity, _a: &A, _b: &B) {
     // called when FULL combination of A and B components appears on some entity. combination is
