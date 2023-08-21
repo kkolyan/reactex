@@ -1,22 +1,22 @@
 use crate::component::ComponentType;
 use crate::filter::FilterDesc;
-use crate::internal::cause::Cause;
 use crate::internal::component_key::ComponentKey;
 use crate::internal::execution::invoke_user_code;
+use crate::internal::execution::EntityEventHandlerCode;
 use crate::internal::filter_manager_events::FilterComponentChange;
 use crate::internal::world_extras::ComponentEventType;
+use crate::internal::world_immutable::ImmutableWorld;
 use crate::internal::world_pipeline;
 use crate::internal::world_stable::StableWorld;
 use crate::internal::world_volatile::VolatileWorld;
 use crate::utils::opt_tiny_vec::OptTinyVec;
-use crate::Ctx;
 use log::trace;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::mem;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use crate::internal::entity_storage::EntityStorage;
 
 pub(crate) static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
 
@@ -28,13 +28,17 @@ pub(crate) static QUERIES: Mutex<Option<HashSet<FilterDesc>>> = Mutex::new(None)
 pub struct World {
     pub(crate) volatile: VolatileWorld,
     pub(crate) stable: StableWorld,
+    pub(crate) immutable: ImmutableWorld,
+    pub(crate) entity_storage: EntityStorage,
 }
 
 impl World {
     pub(crate) fn new() -> Self {
         let mut world = Self {
+            immutable: ImmutableWorld::new(),
             volatile: VolatileWorld::new(),
             stable: StableWorld::new(),
+            entity_storage: EntityStorage::with_capacity(512),
         };
         for registration in COMPONENT_TYPE_REGISTRATIONS.lock().unwrap().iter() {
             registration(&mut world);
@@ -52,18 +56,12 @@ impl World {
         self.stable
             .filter_manager
             .get_filter_mut(filter)
-            .track_matched_entities(
-                self.stable.entity_storage.get_mut(),
-                &self.stable.component_mappings,
-            );
+            .track_matched_entities(&self.entity_storage, &self.stable.component_mappings);
     }
 
     pub(crate) fn flush_entity_create_actions(&mut self) {
         for (task, causes) in mem::take(&mut self.volatile.entities_to_commit) {
-            self.stable
-                .entity_storage
-                .get_mut()
-                .mark_committed(task.index);
+            self.entity_storage.mark_committed(task.index);
             self.stable.filter_manager.on_entity_created(task, causes);
         }
     }
@@ -143,38 +141,29 @@ impl World {
     }
 
     pub(crate) fn invoke_disappear_handlers(&mut self) {
-        Self::invoke_handlers(
-            ComponentEventType::Disappear,
-            &mut self.stable,
-            &mut self.volatile,
-        );
+        self.invoke_handlers(ComponentEventType::Disappear);
     }
 
     pub(crate) fn invoke_appear_handlers(&mut self) {
-        Self::invoke_handlers(
-            ComponentEventType::Appear,
-            &mut self.stable,
-            &mut self.volatile,
-        );
+        self.invoke_handlers(ComponentEventType::Appear);
     }
 
     fn invoke_handlers(
+        &mut self,
         event_type: ComponentEventType,
-        stable: &mut StableWorld,
-        volatile: &mut VolatileWorld,
     ) {
         let filters = mem::take(match event_type {
-            ComponentEventType::Appear => &mut stable.filter_manager.with_new_appear_events,
-            ComponentEventType::Disappear => &mut stable.filter_manager.with_new_disappear_events,
+            ComponentEventType::Appear => &mut self.stable.filter_manager.with_new_appear_events,
+            ComponentEventType::Disappear => &mut self.stable.filter_manager.with_new_disappear_events,
         });
         let handlers = match event_type {
-            ComponentEventType::Appear => &stable.on_appear,
-            ComponentEventType::Disappear => &stable.on_disappear,
+            ComponentEventType::Appear => &self.immutable.on_appear,
+            ComponentEventType::Disappear => &self.immutable.on_disappear,
         };
         for filter in filters {
             if let Some(handlers) = handlers.get(&filter) {
                 for handler in handlers {
-                    let filter = stable.filter_manager.get_filter_internal(filter);
+                    let filter = &mut self.stable.filter_manager.get_filter_internal(filter);
                     let events = match event_type {
                         ComponentEventType::Appear => &mut filter.appear_events,
                         ComponentEventType::Disappear => &mut filter.disappear_events,
@@ -184,18 +173,13 @@ impl World {
                         for (entity, causes) in events {
                             trace!("invoke event {:?} for {}", event_type, entity);
                             invoke_user_code(
-                                volatile,
+                                &mut self.volatile,
+                                &mut self.stable,
+                                &mut self.entity_storage,
                                 handler.name,
                                 causes,
-                                [()],
-                                |volatile, _| {
-                                    let ctx = Ctx {
-                                        signal: &(),
-                                        stable,
-                                        volatile: &RefCell::new(volatile),
-                                    };
-                                    (handler.callback)(ctx, entity.export());
-                                },
+                                [EntityEventHandlerCode {}],
+                                |_| {},
                             );
                         }
                     }
@@ -206,10 +190,7 @@ impl World {
 
     pub(crate) fn flush_entity_destroy_actions(&mut self) {
         for (entity, _) in mem::take(&mut self.volatile.entities_to_destroy.after_disappear) {
-            self.stable
-                .entity_storage
-                .get_mut()
-                .delete_entity_data(entity.index);
+            self.entity_storage.delete_entity_data(entity.index);
             self.stable.filter_manager.on_entity_destroyed(entity);
         }
     }
@@ -304,11 +285,11 @@ impl World {
     pub(crate) fn invoke_signal_handler(&mut self) {
         if let Some(signal) = self.volatile.signal_queue.signals.pop_front() {
             let manager = self
-                .stable
+                .immutable
                 .signal_managers
                 .get(&signal.payload_type)
                 .unwrap();
-            manager.invoke(signal, &self.stable, &mut self.volatile);
+            manager.invoke(signal, &mut self.stable, &mut self.volatile, &mut self.entity_storage);
         }
     }
 }

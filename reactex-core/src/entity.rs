@@ -1,17 +1,20 @@
+use std::cell::RefCell;
+
 use crate::component::EcsComponent;
 use crate::entity_key::EntityKey;
+use crate::internal::change_buffer::Change;
+use crate::internal::change_buffer::ChangeBuffer;
+use crate::internal::component_key::ComponentKey;
+use crate::internal::entity_storage::EntityStorage;
 use crate::internal::world_extras::InternalEntityKey;
 use crate::StableWorld;
-use crate::VolatileWorld;
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::ops::DerefMut;
 
 #[derive(Copy, Clone)]
 pub struct Entity<'a> {
     pub(crate) key: InternalEntityKey,
     pub(crate) stable: &'a StableWorld,
-    pub(crate) volatile: &'a RefCell<&'a mut VolatileWorld>,
+    pub(crate) entity_storage: &'a EntityStorage,
+    pub(crate) changes: &'a RefCell<&'a mut ChangeBuffer>,
 }
 
 impl<'a> Entity<'a> {
@@ -20,47 +23,42 @@ impl<'a> Entity<'a> {
     }
 
     pub fn destroy(self) {
-        let entity_storage = &mut self.stable.entity_storage.borrow_mut();
-        let volatile_world = &mut self.volatile.borrow_mut();
-        volatile_world
-            .destroy_entity(self.key.export(), entity_storage.deref_mut())
-            .unwrap();
+        let mut changes = self.changes.borrow_mut();
+        changes.changes.push(Change::EntityDestroy(self.key));
     }
 
     pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
-        let entity_storage = self.stable.entity_storage.borrow();
-        let volatile_world = &mut self.volatile.borrow_mut();
-        volatile_world
-            .deref_mut()
-            .add_component(self.key.export(), value, entity_storage.deref())
-            .unwrap();
+        let mut changes = self.changes.borrow_mut();
+        changes.changes.push(Change::ComponentAdd(
+            ComponentKey::new(self.key, TComponent::get_component_type()),
+            Box::new(value),
+        ));
     }
 
     pub fn get<TComponent: EcsComponent>(&self) -> Option<&TComponent> {
         self.stable
-            .get_component::<TComponent>(self.key.export())
+            .get_component::<TComponent>(self.key.export(), self.entity_storage)
             .unwrap()
     }
 
     pub fn remove<TComponent: EcsComponent>(&self) {
-        let entity_storage = self.stable.entity_storage.borrow();
-        let volatile_world = &mut self.volatile.borrow_mut();
-        volatile_world
-            .deref_mut()
-            .remove_component::<TComponent>(
-                self.key.export(),
-                entity_storage.deref(),
-                &self.stable.component_mappings,
-            )
-            .unwrap()
+        let mut changes = self.changes.borrow_mut();
+        changes
+            .changes
+            .push(Change::ComponentRemove(ComponentKey::new(
+                self.key,
+                TComponent::get_component_type(),
+            )));
     }
 
     pub fn modify<TComponent: EcsComponent>(&self, change: impl FnOnce(&mut TComponent) + 'static) {
-        let entity_storage = self.stable.entity_storage.borrow();
-        let volatile_world = &mut self.volatile.borrow_mut();
-        volatile_world
-            .deref_mut()
-            .modify_component::<TComponent>(self.key.export(), change, entity_storage.deref())
-            .unwrap()
+        let mut changes = self.changes.borrow_mut();
+        changes.changes.push(Change::ComponentModification(
+            ComponentKey::new(self.key, TComponent::get_component_type()),
+            Box::new(|value| {
+                let value = value.downcast_mut::<TComponent>().unwrap();
+                change(value)
+            }),
+        ));
     }
 }

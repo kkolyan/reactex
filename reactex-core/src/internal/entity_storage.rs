@@ -1,3 +1,5 @@
+use crate::internal::change_buffer::TempEntityKey;
+use crate::internal::entity_key_generator::TemporaryEntityKeyStorage;
 use crate::internal::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::internal::world_extras::EntityGeneration;
 use crate::internal::world_extras::EntityIndex;
@@ -15,6 +17,16 @@ pub(crate) struct EntityStorage {
     entities: Box<[EntityBox]>,
     allocation_boundary: usize,
     holes: VecDeque<usize>,
+}
+
+impl EntityStorage {
+    pub(crate) fn generate_temporary(&self, _ctx: &mut TemporaryEntityKeyStorage) -> TempEntityKey {
+        todo!()
+    }
+
+    pub(crate) fn persist_generated(&mut self, _entity: TempEntityKey) -> InternalEntityKey {
+        todo!()
+    }
 }
 
 impl EntityStorage {
@@ -103,6 +115,7 @@ impl EntityStorage {
                 index: index as u32,
             },
             generation: entity.generation,
+            temp: false,
         };
         trace!("entity created {}", key);
         key
@@ -143,6 +156,7 @@ impl EntityStorage {
             .map(|(i, ent)| InternalEntityKey {
                 index: EntityIndex { index: i as u32 },
                 generation: ent.generation,
+                temp: false,
             })
     }
 }

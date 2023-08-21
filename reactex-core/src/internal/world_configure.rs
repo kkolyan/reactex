@@ -31,7 +31,7 @@ impl World {
             .payloads
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()));
-        self.stable
+        self.immutable
             .get_signal_manager::<T>()
             .global_handlers
             .push(GlobalSignalHandler {
@@ -58,12 +58,9 @@ impl World {
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(SpecificPool::<SignalDataKey, T>::new()));
         let filter = self.stable.filter_manager.get_filter_mut(filter);
-        filter.track_matched_entities(
-            self.stable.entity_storage.borrow().deref(),
-            &self.stable.component_mappings,
-        );
+        filter.track_matched_entities(&self.entity_storage, &self.stable.component_mappings);
         let filter_key = filter.unique_key;
-        self.stable
+        self.immutable
             .get_signal_manager::<T>()
             .handlers
             .entry(filter_key)
@@ -83,7 +80,7 @@ impl World {
         let filter = self.stable.filter_manager.get_filter_mut(filter_key);
         filter.track_disappear_events();
         let filter_key = filter.unique_key;
-        self.stable
+        self.immutable
             .on_disappear
             .entry(filter_key)
             .or_default()
@@ -102,7 +99,7 @@ impl World {
         let filter = self.stable.filter_manager.get_filter_mut(filter_key);
         filter.track_appear_events();
         let filter_key = filter.unique_key;
-        self.stable
+        self.immutable
             .on_appear
             .entry(filter_key)
             .or_default()

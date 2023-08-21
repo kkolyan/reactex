@@ -55,6 +55,7 @@ pub(crate) struct ComponentModify {
 pub(crate) struct InternalEntityKey {
     pub(crate) index: EntityIndex,
     pub(crate) generation: EntityGeneration,
+    pub(crate) temp: bool,
 }
 
 impl Display for InternalEntityKey {
@@ -82,7 +83,11 @@ impl InternalEntityKey {
         let index = self.index;
         let generation = self.generation;
         EntityKey {
-            inner: InternalEntityKey { index, generation },
+            inner: InternalEntityKey {
+                index,
+                generation,
+                temp: false,
+            },
         }
     }
 }

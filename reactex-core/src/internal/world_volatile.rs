@@ -1,6 +1,7 @@
 use crate::component::EcsComponent;
 use crate::entity_key::EntityKey;
 use crate::internal::cause::Cause;
+use crate::internal::change_buffer::TempEntityKey;
 use crate::internal::component_key::ComponentKey;
 use crate::internal::component_mappings::ComponentMappingStorage;
 use crate::internal::component_pool_manager::ComponentPoolManager;
@@ -12,6 +13,7 @@ use crate::internal::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::internal::signal_queue::SignalQueue;
 use crate::internal::signal_sender::SignalSender;
 use crate::internal::signal_storage::SignalStorage;
+use crate::internal::world_core::COMPONENT_NAMES;
 use crate::internal::world_extras::ComponentAdd;
 use crate::internal::world_extras::ComponentModify;
 use crate::internal::world_extras::DeleteQueue;
@@ -20,7 +22,9 @@ use crate::utils::opt_tiny_vec::OptTinyVec;
 use crate::world_result::ComponentError;
 use crate::world_result::WorldError;
 use crate::world_result::WorldResult;
+use crate::ComponentType;
 use log::trace;
+use std::any::Any;
 use std::collections::HashMap;
 
 pub struct VolatileWorld {
@@ -64,16 +68,25 @@ impl VolatileWorld {
 
         let entity = entity.validate(entity_storage, DenyUncommitted)?;
 
-        self.components_to_modify
-            .entry(ComponentKey::new(entity, T::get_component_type()))
-            .or_default()
-            .push(ComponentModify {
-                callback: Box::new(move |state| {
-                    let state: &mut T = state.downcast_mut().unwrap();
-                    change(state);
-                }),
-            });
+        self.modify_component_internal(
+            ComponentKey::new(entity, T::get_component_type()),
+            Box::new(move |state| {
+                let state: &mut T = state.downcast_mut().unwrap();
+                change(state);
+            }),
+        );
         Ok(())
+    }
+
+    pub(crate) fn modify_component_internal(
+        &mut self,
+        component_key: ComponentKey,
+        callback: Box<dyn FnOnce(&mut dyn Any)>,
+    ) {
+        self.components_to_modify
+            .entry(component_key)
+            .or_default()
+            .push(ComponentModify { callback });
     }
 
     pub(crate) fn add_component<T: EcsComponent>(
@@ -105,32 +118,103 @@ impl VolatileWorld {
         Ok(())
     }
 
+    pub(crate) fn add_component_dyn(
+        &mut self,
+        entity: EntityKey,
+        component_type: ComponentType,
+        component: Box<dyn Any>,
+        entity_storage: &EntityStorage,
+    ) -> WorldResult {
+        trace!(
+            "user requested to add component {}<{}>",
+            entity,
+            component_type
+        );
+
+        let entity = entity.validate(entity_storage, AllowUncommitted)?;
+
+        self.add_component_dyn_internal(ComponentKey::new(entity, component_type), component);
+
+        Ok(())
+    }
+
+    pub(crate) fn add_component_dyn_internal(
+        &mut self,
+        component_key: ComponentKey,
+        value: Box<dyn Any>,
+    ) {
+        let data = self
+            .component_data_uncommitted
+            .get_pool_mut(component_key.component_type)
+            .add(value);
+
+        self.components_to_add
+            .entry(component_key)
+            .or_default()
+            .push(ComponentAdd {
+                data,
+                cause: self.current_cause.clone(),
+            });
+    }
+
     pub(crate) fn remove_component<T: EcsComponent>(
         &mut self,
         entity: EntityKey,
         entity_storage: &EntityStorage,
         component_mappings: &ComponentMappingStorage,
     ) -> WorldResult {
-        trace!("remove component {}<{}>", entity, T::NAME);
+        self.remove_component_dyn(
+            entity,
+            T::get_component_type(),
+            entity_storage,
+            component_mappings,
+        )
+    }
+
+    pub(crate) fn remove_component_dyn(
+        &mut self,
+        entity: EntityKey,
+        component_type: ComponentType,
+        entity_storage: &EntityStorage,
+        component_mappings: &ComponentMappingStorage,
+    ) -> WorldResult {
+        trace!("remove component {}<{}>", entity, component_type);
 
         let entity = entity.validate(entity_storage, DenyUncommitted)?;
 
+        self.remove_component_internal(
+            ComponentKey::new(entity, component_type),
+            component_mappings,
+        )
+    }
+
+    pub(crate) fn remove_component_internal(
+        &mut self,
+        component_key: ComponentKey,
+        component_mappings: &ComponentMappingStorage,
+    ) -> WorldResult {
+        // TODO that sucks, redesign it. success of remove_component shouldn't depend on the temporary state introduced of another system in transaction.
         let removed_uncommitted = self
             .components_to_add
-            .remove(&ComponentKey::new(entity, T::get_component_type()))
+            .remove(&ComponentKey::new(
+                component_key.entity,
+                component_key.component_type,
+            ))
             .is_some();
-        if !removed_uncommitted {
-            if !component_mappings
-                .has_component_no_validation(entity.index, T::get_component_type())
-            {
-                return Err(WorldError::Component(ComponentError::NotFound));
-            }
-            self.components_to_delete
-                .before_disappear
-                .entry(ComponentKey::new(entity, T::get_component_type()))
-                .or_default()
-                .push(self.current_cause.clone());
+
+        if removed_uncommitted {
+            return Ok(());
         }
+        if !component_mappings
+            .has_component_no_validation(component_key.entity.index, component_key.component_type)
+        {
+            return Err(WorldError::Component(ComponentError::NotFound));
+        }
+        self.components_to_delete
+            .before_disappear
+            .entry(component_key)
+            .or_default()
+            .push(self.current_cause.clone());
         Ok(())
     }
 
@@ -158,6 +242,20 @@ impl VolatileWorld {
         entity
     }
 
+    pub(crate) fn persist_entity(
+        &mut self,
+        entity: TempEntityKey,
+        entity_storage: &mut EntityStorage,
+    ) {
+        trace!("persisting entity {:?}", entity);
+        let entity = entity_storage.persist_generated(entity);
+        self.entity_component_index.add_entity(entity.index);
+        self.entities_to_commit
+            .entry(entity)
+            .or_default()
+            .push(self.current_cause.clone());
+    }
+
     pub(crate) fn destroy_entity(
         &mut self,
         entity: EntityKey,
@@ -165,6 +263,15 @@ impl VolatileWorld {
     ) -> WorldResult {
         trace!("user requested destroy entity: {}", entity);
         let entity = entity.validate(entity_storage, AllowUncommitted)?;
+        self.destroy_entity_internal(entity, entity_storage);
+        Ok(())
+    }
+
+    pub(crate) fn destroy_entity_internal(
+        &mut self,
+        entity: InternalEntityKey,
+        entity_storage: &mut EntityStorage,
+    ) {
         if entity_storage.is_not_committed(entity.index) {
             // component data is not deleted here, because it will be deleted at once later
 
@@ -184,6 +291,5 @@ impl VolatileWorld {
                     [self.current_cause.clone()],
                 ))
         }
-        Ok(())
     }
 }

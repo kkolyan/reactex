@@ -1,4 +1,6 @@
 use crate::ctx::Ctx;
+use crate::internal::execution::invoke_user_code;
+use crate::internal::execution::ExecuteOnceCode;
 use crate::module::Module;
 use crate::ConfigurableWorld;
 use crate::World;
@@ -46,13 +48,18 @@ impl EcsContainer {
 
     pub fn execute_once<T>(&mut self, actions: impl FnOnce(Ctx) -> T) -> T {
         trace!("execute_once");
-        let ctx = Ctx {
-            signal: &(),
-            stable: &self.world.stable,
-            volatile: &RefCell::new(&mut self.world.volatile),
-        };
-        let result = actions(ctx);
+        let stable = &mut self.world.stable;
+        let mut result = None;
+        invoke_user_code(
+            &mut self.world.volatile,
+            stable,
+            &mut self.world.entity_storage,
+            "execute_once",
+            [],
+            [ExecuteOnceCode { callback: actions }],
+            |r| result = Some(r),
+        );
         self.world.execute_all();
-        result
+        result.unwrap()
     }
 }

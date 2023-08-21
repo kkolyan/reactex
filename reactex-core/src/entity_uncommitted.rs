@@ -1,16 +1,19 @@
+use std::cell::RefCell;
+
 use crate::component::EcsComponent;
 use crate::entity::Entity;
 use crate::entity_key::EntityKey;
+use crate::internal::change_buffer::ChangeBuffer;
+use crate::internal::entity_storage::EntityStorage;
 use crate::internal::world_extras::InternalEntityKey;
 use crate::StableWorld;
-use crate::VolatileWorld;
-use std::cell::RefCell;
 
 #[derive(Copy, Clone)]
 pub struct UncommittedEntity<'a> {
     pub(crate) key: InternalEntityKey,
     pub(crate) stable: &'a StableWorld,
-    pub(crate) volatile: &'a RefCell<&'a mut VolatileWorld>,
+    pub(crate) entity_storage: &'a EntityStorage,
+    pub(crate) changes: &'a RefCell<&'a mut ChangeBuffer>,
 }
 
 impl<'a> UncommittedEntity<'a> {
@@ -22,7 +25,8 @@ impl<'a> UncommittedEntity<'a> {
         Entity {
             key: self.key,
             stable: self.stable,
-            volatile: self.volatile,
+            entity_storage: self.entity_storage,
+            changes: self.changes,
         }
         .destroy();
     }
@@ -31,7 +35,8 @@ impl<'a> UncommittedEntity<'a> {
         Entity {
             key: self.key,
             stable: self.stable,
-            volatile: self.volatile,
+            entity_storage: self.entity_storage,
+            changes: self.changes,
         }
         .add(value);
     }

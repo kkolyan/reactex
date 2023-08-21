@@ -73,17 +73,17 @@ impl World {
 // work with entities
 impl World {
     pub fn create_entity(&mut self) -> EntityKey {
-        let entity_storage = self.stable.entity_storage.get_mut();
+        let entity_storage = &mut self.entity_storage;
         self.volatile.create_entity(entity_storage).export()
     }
 
     pub fn destroy_entity(&mut self, entity: EntityKey) -> WorldResult {
-        let entity_storage = self.stable.entity_storage.get_mut();
+        let entity_storage = &mut self.entity_storage;
         self.volatile.destroy_entity(entity, entity_storage)
     }
 
     pub fn entity_exists(&self, entity: EntityKey) -> bool {
-        self.stable.entity_exists(entity)
+        self.stable.entity_exists(entity, &self.entity_storage)
     }
 
     pub fn query(&mut self, filter: FilterDesc, callback: impl FnMut(EntityKey)) {
@@ -94,10 +94,10 @@ impl World {
 // work with components
 impl World {
     pub fn get_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<Option<&T>> {
-        self.stable.get_component::<T>(entity)
+        self.stable.get_component::<T>(entity, &self.entity_storage)
     }
     pub fn has_component<T: EcsComponent>(&self, entity: EntityKey) -> WorldResult<bool> {
-        self.stable.has_component::<T>(entity)
+        self.stable.has_component::<T>(entity, &self.entity_storage)
     }
 
     pub fn modify_component<T: EcsComponent>(
@@ -105,7 +105,7 @@ impl World {
         entity: EntityKey,
         change: impl FnOnce(&mut T) + 'static,
     ) -> WorldResult {
-        let entity_storage = self.stable.entity_storage.get_mut();
+        let entity_storage = &self.entity_storage;
         self.volatile
             .modify_component(entity, change, entity_storage)
     }
@@ -115,13 +115,13 @@ impl World {
         entity: EntityKey,
         component: T,
     ) -> WorldResult {
-        let entity_storage = self.stable.entity_storage.get_mut();
+        let entity_storage = &self.entity_storage;
         self.volatile
             .add_component(entity, component, entity_storage)
     }
 
     pub fn remove_component<T: EcsComponent>(&mut self, entity: EntityKey) -> WorldResult {
-        let entity_storage = self.stable.entity_storage.get_mut();
+        let entity_storage = &self.entity_storage;
         self.volatile
             .remove_component::<T>(entity, entity_storage, &self.stable.component_mappings)
     }

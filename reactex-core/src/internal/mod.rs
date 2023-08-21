@@ -1,8 +1,10 @@
 pub(crate) mod cause;
+pub(crate) mod change_buffer;
 pub(crate) mod component_key;
 pub(crate) mod component_mappings;
 pub(crate) mod component_pool_manager;
 pub(crate) mod entity_component_index;
+pub(crate) mod entity_key_generator;
 pub(crate) mod entity_storage;
 pub(crate) mod execution;
 pub(crate) mod filter;
@@ -15,6 +17,7 @@ pub(crate) mod signal_storage;
 pub(crate) mod world_configure;
 pub(crate) mod world_core;
 pub(crate) mod world_extras;
+pub(crate) mod world_immutable;
 pub(crate) mod world_pipeline;
 pub(crate) mod world_stable;
 pub(crate) mod world_volatile;
