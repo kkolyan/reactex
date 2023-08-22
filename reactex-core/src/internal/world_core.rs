@@ -1,8 +1,9 @@
 use crate::component::ComponentType;
 use crate::filter::FilterDesc;
 use crate::internal::component_key::ComponentKey;
+use crate::internal::entity_storage::EntityStorage;
 use crate::internal::execution::invoke_user_code;
-use crate::internal::execution::EntityEventHandlerCode;
+use crate::internal::execution::UserCode;
 use crate::internal::filter_manager_events::FilterComponentChange;
 use crate::internal::world_extras::ComponentEventType;
 use crate::internal::world_immutable::ImmutableWorld;
@@ -16,7 +17,6 @@ use std::collections::HashSet;
 use std::mem;
 use std::sync::Mutex;
 use std::sync::RwLock;
-use crate::internal::entity_storage::EntityStorage;
 
 pub(crate) static COMPONENT_TYPE_REGISTRATIONS: Mutex<Vec<fn(&mut World)>> = Mutex::new(Vec::new());
 
@@ -148,13 +148,12 @@ impl World {
         self.invoke_handlers(ComponentEventType::Appear);
     }
 
-    fn invoke_handlers(
-        &mut self,
-        event_type: ComponentEventType,
-    ) {
+    fn invoke_handlers(&mut self, event_type: ComponentEventType) {
         let filters = mem::take(match event_type {
             ComponentEventType::Appear => &mut self.stable.filter_manager.with_new_appear_events,
-            ComponentEventType::Disappear => &mut self.stable.filter_manager.with_new_disappear_events,
+            ComponentEventType::Disappear => {
+                &mut self.stable.filter_manager.with_new_disappear_events
+            }
         });
         let handlers = match event_type {
             ComponentEventType::Appear => &self.immutable.on_appear,
@@ -178,8 +177,11 @@ impl World {
                                 &mut self.entity_storage,
                                 handler.name,
                                 causes,
-                                [EntityEventHandlerCode {}],
+                                [UserCode::new(|ctx| {
+                                    (handler.callback)(ctx, entity.export())
+                                })],
                                 |_| {},
+                                &(),
                             );
                         }
                     }
@@ -289,7 +291,12 @@ impl World {
                 .signal_managers
                 .get(&signal.payload_type)
                 .unwrap();
-            manager.invoke(signal, &mut self.stable, &mut self.volatile, &mut self.entity_storage);
+            manager.invoke(
+                signal,
+                &mut self.stable,
+                &mut self.volatile,
+                &mut self.entity_storage,
+            );
         }
     }
 }

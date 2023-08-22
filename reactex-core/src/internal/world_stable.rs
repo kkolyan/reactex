@@ -23,7 +23,7 @@ pub struct StableWorld {
     pub(crate) filter_manager: FilterManager,
     pub(crate) sequence: Vec<PipelineStep>,
     pub(crate) component_data_pumps:
-    HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
+        HashMap<ComponentType, Box<dyn AbstractPoolPump<TempComponentDataKey, ComponentDataKey>>>,
 }
 
 impl StableWorld {
@@ -65,9 +65,7 @@ impl StableWorld {
         entity: EntityKey,
         entity_storage: &EntityStorage,
     ) -> WorldResult<Option<&T>> {
-        let entity = entity
-            .validate(entity_storage, DenyUncommitted)?
-            .index;
+        let entity = entity.validate(entity_storage, DenyUncommitted)?.index;
         Ok(self.get_component_no_validation(entity))
     }
 
@@ -94,12 +92,11 @@ impl StableWorld {
             .try_specialize::<T>()
     }
     pub(crate) fn has_component<T: EcsComponent>(
-        &self, entity: EntityKey,
+        &self,
+        entity: EntityKey,
         entity_storage: &EntityStorage,
     ) -> WorldResult<bool> {
-        let entity = entity
-            .validate(entity_storage, DenyUncommitted)?
-            .index;
+        let entity = entity.validate(entity_storage, DenyUncommitted)?.index;
         Ok(self
             .component_mappings
             .data_by_entity_by_type
@@ -108,12 +105,7 @@ impl StableWorld {
             .unwrap_or(false))
     }
 
-    pub(crate) fn entity_exists(
-        &self, entity: EntityKey,
-        entity_storage: &EntityStorage,
-    ) -> bool {
-        entity
-            .validate(entity_storage, AllowUncommitted)
-            .is_ok()
+    pub(crate) fn entity_exists(&self, entity: EntityKey, entity_storage: &EntityStorage) -> bool {
+        entity.validate(entity_storage, AllowUncommitted).is_ok()
     }
 }

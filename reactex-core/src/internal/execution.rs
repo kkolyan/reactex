@@ -5,71 +5,63 @@ use std::mem;
 use crate::internal::cause::Cause;
 use crate::internal::change_buffer::ChangeBuffer;
 use crate::internal::entity_key_generator::TemporaryEntityKeyStorage;
-use crate::Ctx;
 use crate::internal::entity_storage::EntityStorage;
+use crate::Ctx;
 use crate::StableWorld;
 use crate::VolatileWorld;
 
-pub(crate) fn invoke_user_code<R>(
+pub(crate) fn invoke_user_code<R, P>(
     volatile: &mut VolatileWorld,
     stable: &StableWorld,
     entity_storage: &mut EntityStorage,
     handler_name: &'static str,
     causes: impl IntoIterator<Item = Cause>,
-    code: impl IntoIterator<Item = impl UserCode<R>>,
+    code: impl IntoIterator<Item = impl Code<P, R>>,
     mut result_handler: impl FnMut(R),
+    payload: &P,
 ) {
     let new_cause = Cause::consequence(handler_name, causes);
     let prev_cause = mem::replace(&mut volatile.current_cause, new_cause);
     for code in code {
         let mut changes = ChangeBuffer::new(TemporaryEntityKeyStorage::new());
         let changes_ref = RefCell::new(&mut changes);
-        let result = code.execute(&changes_ref, stable, entity_storage);
+        let ctx = Ctx::new(payload, stable, entity_storage, &changes_ref);
+        let result = code.invoke(ctx);
         result_handler(result);
-        changes.apply_to(
-            volatile,
-            entity_storage,
-            &stable.component_mappings,
-        );
+        changes.apply_to(volatile, entity_storage, &stable.component_mappings);
     }
     volatile.current_cause = prev_cause;
 }
 
-pub(crate) trait UserCode<R = ()> {
-    fn execute<'a>(self, changes: &'a RefCell<&'a mut ChangeBuffer>, stable: &'a StableWorld, entity_storage: &'a mut EntityStorage) -> R;
+pub(crate) trait Code<P, R> {
+    fn invoke(self, ctx: Ctx<P>) -> R;
 }
 
-pub(crate) struct EntityEventHandlerCode {}
+pub(crate) struct UserCode<P, R, F>
+where
+    F: FnOnce(Ctx<P>) -> R,
+{
+    pd: PhantomData<(P, R)>,
+    f: F,
+}
 
-impl UserCode for EntityEventHandlerCode {
-    fn execute<'a>(self, changes: &'a RefCell<&'a mut ChangeBuffer>, stable: &'a StableWorld, entity_storage: &'a mut EntityStorage)  {
-        todo!()
+impl<P, R, F> UserCode<P, R, F>
+where
+    F: FnOnce(Ctx<P>) -> R,
+{
+    pub(crate) fn new(f: F) -> Self {
+        Self {
+            pd: Default::default(),
+            f,
+        }
     }
 }
 
-pub(crate) struct GlobalSignalHandlerCode {}
-
-impl UserCode for GlobalSignalHandlerCode {
-    fn execute<'a>(self, changes: &'a RefCell<&'a mut ChangeBuffer>, stable: &'a StableWorld, entity_storage: &'a mut EntityStorage)  {
-        todo!()
-    }
-}
-
-pub(crate) struct EntitySignalHandlerCode {}
-
-impl UserCode for EntitySignalHandlerCode {
-    fn execute<'a>(self, changes: &'a RefCell<&'a mut ChangeBuffer>, stable: &'a StableWorld, entity_storage: &'a mut EntityStorage)  {
-        todo!()
-    }
-}
-
-pub(crate) struct ExecuteOnceCode<F> {
-    pub(crate) callback: F,
-}
-
-impl<R, F: FnOnce(Ctx) -> R> UserCode<R> for ExecuteOnceCode<F> {
-    fn execute<'a>(self, changes: &'a RefCell<&'a mut ChangeBuffer>, stable: &'a StableWorld, entity_storage: &'a mut EntityStorage) -> R {
-        let ctx = Ctx::new(&(), stable, entity_storage, changes);
-        (self.callback)(ctx)
+impl<P, R, F> Code<P, R> for UserCode<P, R, F>
+where
+    F: FnOnce(Ctx<P>) -> R,
+{
+    fn invoke(self, ctx: Ctx<P>) -> R {
+        (self.f)(ctx)
     }
 }

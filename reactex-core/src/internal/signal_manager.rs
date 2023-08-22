@@ -1,14 +1,13 @@
 use crate::entity_key::EntityKey;
 use crate::internal::cause::Cause;
+use crate::internal::entity_storage::EntityStorage;
 use crate::internal::execution::invoke_user_code;
-use crate::internal::execution::EntitySignalHandlerCode;
-use crate::internal::execution::GlobalSignalHandlerCode;
+use crate::internal::execution::UserCode;
 use crate::Ctx;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
-use crate::internal::entity_storage::EntityStorage;
 
 use crate::internal::filter_manager::InternalFilterKey;
 use crate::internal::world_extras::Signal;
@@ -16,7 +15,13 @@ use crate::internal::world_stable::StableWorld;
 use crate::internal::world_volatile::VolatileWorld;
 
 pub(crate) trait AbstractSignalManager {
-    fn invoke(&self, signal: Signal, stable: &mut StableWorld, volatile: &mut VolatileWorld, entity_storage: &mut EntityStorage);
+    fn invoke(
+        &self,
+        signal: Signal,
+        stable: &mut StableWorld,
+        volatile: &mut VolatileWorld,
+        entity_storage: &mut EntityStorage,
+    );
     fn as_any_mut(&mut self) -> AnySignalManager;
 }
 
@@ -55,7 +60,13 @@ impl<T> Default for SignalManager<T> {
 }
 
 impl<T: 'static> AbstractSignalManager for SignalManager<T> {
-    fn invoke(&self, signal: Signal, stable: &mut StableWorld, volatile: &mut VolatileWorld, entity_storage: &mut EntityStorage) {
+    fn invoke(
+        &self,
+        signal: Signal,
+        stable: &mut StableWorld,
+        volatile: &mut VolatileWorld,
+        entity_storage: &mut EntityStorage,
+    ) {
         let payload = volatile
             .signal_storage
             .payloads
@@ -74,8 +85,11 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
                 entity_storage,
                 handler.name,
                 [signal.cause.clone()],
-                [GlobalSignalHandlerCode {}],
+                [UserCode::new(|ctx| {
+                    (handler.callback)(ctx);
+                })],
                 |_| {},
+                &payload,
             );
         }
 
@@ -92,10 +106,11 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
                         entity_storage,
                         handler.name,
                         [signal.cause.clone()],
-                        matched_entities
-                            .iter()
-                            .map(|entity| EntitySignalHandlerCode {}),
+                        matched_entities.iter().map(|entity| {
+                            UserCode::new(|ctx| (handler.callback)(ctx, entity.export()))
+                        }),
                         |_| {},
+                        &payload,
                     );
                 }
             }

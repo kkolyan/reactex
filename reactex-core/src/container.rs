@@ -1,11 +1,10 @@
 use crate::ctx::Ctx;
 use crate::internal::execution::invoke_user_code;
-use crate::internal::execution::ExecuteOnceCode;
+use crate::internal::execution::UserCode;
 use crate::module::Module;
 use crate::ConfigurableWorld;
 use crate::World;
 use log::trace;
-use std::cell::RefCell;
 use std::sync::RwLock;
 
 pub struct EcsContainerBuilder {
@@ -56,8 +55,9 @@ impl EcsContainer {
             &mut self.world.entity_storage,
             "execute_once",
             [],
-            [ExecuteOnceCode { callback: actions }],
+            [UserCode::new(actions)],
             |r| result = Some(r),
+            &(),
         );
         self.world.execute_all();
         result.unwrap()
