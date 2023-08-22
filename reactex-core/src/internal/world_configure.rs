@@ -10,16 +10,17 @@ use crate::Ctx;
 use log::trace;
 use std::any::TypeId;
 use std::ops::Deref;
+use std::panic::{RefUnwindSafe, UnwindSafe};
 
 pub struct ConfigurableWorld {
     pub(crate) fetus: World,
 }
 
 impl World {
-    pub(crate) fn add_global_signal_handler<T: 'static>(
+    pub(crate) fn add_global_signal_handler<T: RefUnwindSafe + UnwindSafe + 'static>(
         &mut self,
         name: &'static str,
-        callback: impl Fn(Ctx<T>) + 'static,
+        callback: impl Fn(Ctx<T>) + RefUnwindSafe + 'static,
     ) {
         trace!(
             "register global signal handler '{}' for {}",
@@ -40,11 +41,11 @@ impl World {
             });
     }
 
-    pub(crate) fn add_entity_signal_handler<T: 'static>(
+    pub(crate) fn add_entity_signal_handler<T: RefUnwindSafe + UnwindSafe + 'static>(
         &mut self,
         name: &'static str,
         filter: FilterDesc,
-        callback: impl Fn(Ctx<T>, EntityKey) + 'static,
+        callback: impl Fn(Ctx<T>, EntityKey) + RefUnwindSafe + 'static,
     ) {
         trace!(
             "register signal handler '{}' for {} and {}",
@@ -75,7 +76,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(Ctx, EntityKey) + 'static,
+        callback: impl Fn(Ctx, EntityKey) + RefUnwindSafe + 'static,
     ) {
         let filter = self.stable.filter_manager.get_filter_mut(filter_key);
         filter.track_disappear_events();
@@ -94,7 +95,7 @@ impl World {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(Ctx, EntityKey) + 'static,
+        callback: impl Fn(Ctx, EntityKey) + RefUnwindSafe + 'static,
     ) {
         let filter = self.stable.filter_manager.get_filter_mut(filter_key);
         filter.track_appear_events();

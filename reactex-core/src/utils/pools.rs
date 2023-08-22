@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use std::panic::RefUnwindSafe;
 
 pub struct SpecificPool<K, V> {
     pd: PhantomData<K>,
@@ -8,7 +9,7 @@ pub struct SpecificPool<K, V> {
     holes: VecDeque<usize>,
 }
 
-pub trait AbstractPool<K> {
+pub trait AbstractPool<K>: RefUnwindSafe {
     fn del(&mut self, key: &K);
     fn add(&mut self, value: Box<dyn Any>) -> K;
     fn clear(&mut self);
@@ -108,7 +109,7 @@ impl<K: PoolKey, V> SpecificPool<K, V> {
     }
 }
 
-impl<K: PoolKey + 'static, V: 'static> AbstractPool<K> for SpecificPool<K, V> {
+impl<K: PoolKey + RefUnwindSafe + 'static, V: RefUnwindSafe + 'static> AbstractPool<K> for SpecificPool<K, V> {
     fn del(&mut self, key: &K) {
         self.del_internal(key);
     }

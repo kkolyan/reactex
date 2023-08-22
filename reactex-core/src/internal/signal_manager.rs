@@ -8,6 +8,7 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
+use std::panic::{RefUnwindSafe, UnwindSafe};
 
 use crate::internal::filter_manager::InternalFilterKey;
 use crate::internal::world_extras::Signal;
@@ -59,7 +60,7 @@ impl<T> Default for SignalManager<T> {
     }
 }
 
-impl<T: 'static> AbstractSignalManager for SignalManager<T> {
+impl<T: RefUnwindSafe + UnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
     fn invoke(
         &self,
         signal: Signal,
@@ -122,5 +123,5 @@ impl<T: 'static> AbstractSignalManager for SignalManager<T> {
     }
 }
 
-pub(crate) type GlobalSignalCallback<T> = dyn Fn(Ctx<T>);
-pub(crate) type EntitySignalCallback<T> = dyn Fn(Ctx<T>, EntityKey);
+pub(crate) type GlobalSignalCallback<T> = dyn Fn(Ctx<T>) + RefUnwindSafe;
+pub(crate) type EntitySignalCallback<T> = dyn Fn(Ctx<T>, EntityKey) + RefUnwindSafe;

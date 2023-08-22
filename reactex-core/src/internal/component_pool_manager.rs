@@ -5,6 +5,7 @@ use crate::utils::pools::PoolKey;
 use crate::utils::pools::SpecificPool;
 use log::info;
 use std::collections::HashMap;
+use std::panic::RefUnwindSafe;
 
 pub(crate) struct ComponentPoolManager<TComponentDataKey> {
     by_type: HashMap<ComponentType, Box<dyn AbstractPool<TComponentDataKey>>>,
@@ -26,7 +27,7 @@ impl ComponentPoolManager<TempComponentDataKey> {
     }
 }
 
-impl<TComponentDataKey: PoolKey + 'static> ComponentPoolManager<TComponentDataKey> {
+impl<TComponentDataKey: PoolKey + RefUnwindSafe + 'static> ComponentPoolManager<TComponentDataKey> {
     pub(crate) fn init_pool<TComponent: EcsComponent>(&mut self, name: &str) {
         info!("initialize pool {:?} with {}", name, TComponent::NAME);
         assert!(

@@ -9,6 +9,7 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::panic::RefUnwindSafe;
 
 #[derive(Default)]
 pub(crate) struct DeleteQueue<TKey> {
@@ -32,7 +33,7 @@ pub(crate) struct ComponentAdd {
 
 pub(crate) struct EventHandler {
     pub(crate) name: &'static str,
-    pub(crate) callback: Box<dyn Fn(Ctx, EntityKey)>,
+    pub(crate) callback: Box<dyn Fn(Ctx, EntityKey) + RefUnwindSafe>,
 }
 
 pub(crate) struct Signal {

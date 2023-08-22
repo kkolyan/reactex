@@ -2,8 +2,9 @@ use crate::internal::world_core::COMPONENT_NAMES;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::panic::RefUnwindSafe;
 
-pub trait EcsComponent: 'static {
+pub trait EcsComponent: RefUnwindSafe + 'static {
     const INDEX: u16;
     const NAME: &'static str;
 
