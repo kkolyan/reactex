@@ -4,3 +4,4 @@
 /reactex-macro-core/target
 Cargo.lock
 .derive_ecs_component.*.txt
+/log4rs.yaml
