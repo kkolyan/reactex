@@ -39,9 +39,8 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
             .entity_storage
             .generate_temporary(&mut changes.entity_key_generator);
         let key = entity_key.inner;
-        changes
-            .entity_key_generator
-            .next_entity_key(&self.entity_storage);
+
+        self.entity_storage.generate_temporary(&mut changes.entity_key_generator);
         changes.changes.push(Change::EntityCreate(entity_key));
         UncommittedEntity {
             key,

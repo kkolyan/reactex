@@ -19,12 +19,63 @@ pub(crate) struct EntityStorage {
 }
 
 impl EntityStorage {
-    pub(crate) fn generate_temporary(&self, _ctx: &mut TemporaryEntityKeyStorage) -> TempEntityKey {
-        todo!()
+    fn holes_pop(&self, state: &mut TemporaryEntityKeyStorage) -> Option<usize> {
+        if self.holes.len() <= state.used_holes {
+            return None;
+        }
+        let result = self.holes.get(self.holes.len() - state.used_holes - 1).copied();
+        state.used_holes += 1;
+        return result;
     }
 
-    pub(crate) fn persist_generated(&mut self, _entity: TempEntityKey) -> InternalEntityKey {
-        todo!()
+    pub(crate) fn generate_temporary(&self, state: &mut TemporaryEntityKeyStorage) -> TempEntityKey {
+        let index = match self.holes_pop(state) {
+            None => {
+                let index = self.allocation_boundary + state.tail_allocations;
+                state.tail_allocations += 1;
+                index
+            }
+            Some(index) => index,
+        };
+
+        let mut generation: EntityGeneration = self.entities.get(index).unwrap().generation;
+
+        let key = InternalEntityKey {
+            index: EntityIndex {
+                index: index as u32,
+            },
+            generation: generation.to_next_generation(),
+            temp: false,
+        };
+        TempEntityKey { inner: key }
+    }
+
+    pub(crate) fn persist_generated(&mut self, input: TempEntityKey) -> InternalEntityKey {
+        trace!("persisting entity {}", input.inner);
+
+        let index = input.inner.index;
+
+        let generation = self.entities.get_mut(input.inner.index.index as usize)
+            .map(|it| it.generation)
+            .unwrap_or(EntityGeneration::new());
+        assert_eq!(generation.to_next_generation(), input.inner.generation);
+
+        if self.holes.last().copied() == Some(index.index as usize) {
+            self.holes.pop();
+        } else {
+            if self.entities.len() == index.index as usize {
+                self.extend();
+            }
+            assert!(self.entities.len() > index.index as usize);
+            self.allocation_boundary += 1;
+        }
+
+        let entity = self.entities.get_mut(input.inner.index.index as usize).unwrap();
+        entity.exists = true;
+        entity.committed = false;
+        entity.generation = input.inner.generation;
+
+        input.inner
     }
 }
 
@@ -86,38 +137,21 @@ impl EntityStorage {
 
     pub(crate) fn new_entity(&mut self) -> InternalEntityKey {
         trace!("creating new entity");
-        let index = match self.holes.pop() {
-            None => {
-                let index = self.allocation_boundary;
-                self.allocation_boundary += 1;
-                if index >= self.entities.len() {
-                    let entity_box_template = EntityBox::new();
-                    let new_size = self.entities.len() * 2;
-                    let prev = mem::replace(
-                        &mut self.entities,
-                        vec![entity_box_template; new_size].into_boxed_slice(),
-                    );
-                    self.entities[0..prev.len()].copy_from_slice(&prev);
-                }
-                index
-            }
-            Some(index) => index,
-        };
-
-        let entity = self.entities.get_mut(index).unwrap();
-        entity.exists = true;
-        entity.committed = false;
-        entity.generation.increment();
-
-        let key = InternalEntityKey {
-            index: EntityIndex {
-                index: index as u32,
-            },
-            generation: entity.generation,
-            temp: false,
-        };
+        let mut state = TemporaryEntityKeyStorage::new();
+        let key = self.generate_temporary(&mut state);
+        let key = self.persist_generated(key);
         trace!("entity created {}", key);
         key
+    }
+
+    fn extend(&mut self) {
+        let new_size = self.entities.len() * 2;
+        let entity_box_template = EntityBox::new();
+        let prev = mem::replace(
+            &mut self.entities,
+            vec![entity_box_template; new_size].into_boxed_slice(),
+        );
+        self.entities[0..prev.len()].copy_from_slice(&prev);
     }
 
     pub(crate) fn is_not_committed(&self, key: EntityIndex) -> bool {
@@ -147,7 +181,7 @@ impl EntityStorage {
             .committed = true;
     }
 
-    pub(crate) fn get_all(&self) -> impl Iterator<Item = InternalEntityKey> + '_ {
+    pub(crate) fn get_all(&self) -> impl Iterator<Item=InternalEntityKey> + '_ {
         self.entities
             .iter()
             .enumerate()

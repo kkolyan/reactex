@@ -94,11 +94,15 @@ impl InternalEntityKey {
 }
 
 impl EntityGeneration {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         EntityGeneration(0)
     }
 
     pub fn increment(&mut self) {
         self.0 += 1;
+    }
+
+    pub fn to_next_generation(self) -> Self {
+        Self(self.0 + 1)
     }
 }
