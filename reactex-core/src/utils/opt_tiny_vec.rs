@@ -16,6 +16,7 @@ impl<T> Default for OptTinyVec<T> {
     }
 }
 
+#[allow(dead_code)]
 impl<T> OptTinyVec<T> {
     #[inline]
     pub fn single(value: T) -> OptTinyVec<T> {
