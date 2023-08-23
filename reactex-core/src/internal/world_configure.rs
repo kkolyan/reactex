@@ -10,14 +10,14 @@ use crate::Ctx;
 use log::trace;
 use std::any::TypeId;
 use std::ops::Deref;
-use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::panic::RefUnwindSafe;
 
 pub struct ConfigurableWorld {
     pub(crate) fetus: World,
 }
 
 impl World {
-    pub(crate) fn add_global_signal_handler<T: RefUnwindSafe + UnwindSafe + 'static>(
+    pub(crate) fn add_global_signal_handler<T: RefUnwindSafe + 'static>(
         &mut self,
         name: &'static str,
         callback: impl Fn(Ctx<T>) + RefUnwindSafe + 'static,
@@ -41,7 +41,7 @@ impl World {
             });
     }
 
-    pub(crate) fn add_entity_signal_handler<T: RefUnwindSafe + UnwindSafe + 'static>(
+    pub(crate) fn add_entity_signal_handler<T: RefUnwindSafe + 'static>(
         &mut self,
         name: &'static str,
         filter: FilterDesc,

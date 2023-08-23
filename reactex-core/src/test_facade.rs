@@ -1,4 +1,3 @@
-use std::panic::{RefUnwindSafe, UnwindSafe};
 use crate::component::EcsComponent;
 use crate::entity_key::EntityKey;
 use crate::filter::FilterDesc;
@@ -7,6 +6,7 @@ use crate::internal::world_core::World;
 use crate::internal::world_pipeline::execute_all_internal;
 use crate::world_result::WorldResult;
 use crate::Ctx;
+use std::panic::RefUnwindSafe;
 
 impl ConfigurableWorld {
     // I'm just too lazy to rewrite all tests to user API
@@ -24,7 +24,7 @@ impl ConfigurableWorld {
         self.fetus
     }
 
-    pub fn add_global_signal_handler<T: RefUnwindSafe + UnwindSafe + 'static>(
+    pub fn add_global_signal_handler<T: RefUnwindSafe + 'static>(
         &mut self,
         name: &'static str,
         callback: impl Fn(Ctx<T>) + RefUnwindSafe + 'static,
@@ -32,7 +32,7 @@ impl ConfigurableWorld {
         self.fetus.add_global_signal_handler(name, callback)
     }
 
-    pub fn add_entity_signal_handler<T: RefUnwindSafe + UnwindSafe + 'static>(
+    pub fn add_entity_signal_handler<T: RefUnwindSafe + 'static>(
         &mut self,
         name: &'static str,
         filter: FilterDesc,
@@ -45,7 +45,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(Ctx, EntityKey)  + RefUnwindSafe + 'static,
+        callback: impl Fn(Ctx, EntityKey) + RefUnwindSafe + 'static,
     ) {
         self.fetus.add_disappear_handler(name, filter_key, callback)
     }
@@ -54,7 +54,7 @@ impl ConfigurableWorld {
         &mut self,
         name: &'static str,
         filter_key: FilterDesc,
-        callback: impl Fn(Ctx, EntityKey)  + RefUnwindSafe + 'static,
+        callback: impl Fn(Ctx, EntityKey) + RefUnwindSafe + 'static,
     ) {
         self.fetus.add_appear_handler(name, filter_key, callback)
     }

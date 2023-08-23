@@ -1,19 +1,16 @@
+use std::any::Any;
+use std::collections::HashMap;
+use std::panic::RefUnwindSafe;
+
 use crate::entity_key::EntityKey;
-use crate::internal::cause::Cause;
 use crate::internal::entity_storage::EntityStorage;
 use crate::internal::execution::invoke_user_code;
 use crate::internal::execution::UserCode;
-use crate::Ctx;
-use std::any::Any;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::mem;
-use std::panic::{RefUnwindSafe, UnwindSafe};
-
 use crate::internal::filter_manager::InternalFilterKey;
 use crate::internal::world_extras::Signal;
 use crate::internal::world_stable::StableWorld;
 use crate::internal::world_volatile::VolatileWorld;
+use crate::Ctx;
 
 pub(crate) trait AbstractSignalManager {
     fn invoke(
@@ -60,7 +57,7 @@ impl<T> Default for SignalManager<T> {
     }
 }
 
-impl<T: RefUnwindSafe + UnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
+impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
     fn invoke(
         &self,
         signal: Signal,

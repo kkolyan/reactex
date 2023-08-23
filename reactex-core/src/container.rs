@@ -1,4 +1,3 @@
-use std::panic::UnwindSafe;
 use crate::ctx::Ctx;
 use crate::internal::execution::invoke_user_code;
 use crate::internal::execution::UserCode;
@@ -6,6 +5,7 @@ use crate::module::Module;
 use crate::ConfigurableWorld;
 use crate::World;
 use log::trace;
+use std::panic::UnwindSafe;
 use std::sync::RwLock;
 
 pub struct EcsContainerBuilder {
@@ -46,7 +46,7 @@ impl EcsContainer {
         }
     }
 
-    pub fn execute_once<T: UnwindSafe>(&mut self, actions: impl (FnOnce(Ctx) -> T) + UnwindSafe) -> T {
+    pub fn execute_once<T>(&mut self, actions: impl (FnOnce(Ctx) -> T) + UnwindSafe) -> T {
         trace!("execute_once");
         let stable = &mut self.world.stable;
         let mut result = None;

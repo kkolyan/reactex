@@ -1,9 +1,10 @@
+use std::marker::PhantomData;
+use std::panic::RefUnwindSafe;
+
 use crate::utils::pools::AbstractPool;
 use crate::utils::pools::PoolKey;
-use std::marker::PhantomData;
-use std::panic::{RefUnwindSafe, UnwindSafe};
 
-pub trait AbstractPoolPump<TKeySrc, TKeyDst> : RefUnwindSafe {
+pub trait AbstractPoolPump<TKeySrc, TKeyDst>: RefUnwindSafe {
     fn do_move(
         &self,
         src: &mut dyn AbstractPool<TKeySrc>,
@@ -24,8 +25,11 @@ impl<TKeySrc, TKeyDst, TValue> Default for SpecificPoolPump<TKeySrc, TKeyDst, TV
     }
 }
 
-impl<TKeySrc: PoolKey + RefUnwindSafe, TKeyDst: PoolKey + RefUnwindSafe, TValue: RefUnwindSafe + 'static> AbstractPoolPump<TKeySrc, TKeyDst>
-    for SpecificPoolPump<TKeySrc, TKeyDst, TValue>
+impl<
+        TKeySrc: PoolKey + RefUnwindSafe,
+        TKeyDst: PoolKey + RefUnwindSafe,
+        TValue: RefUnwindSafe + 'static,
+    > AbstractPoolPump<TKeySrc, TKeyDst> for SpecificPoolPump<TKeySrc, TKeyDst, TValue>
 {
     fn do_move(
         &self,

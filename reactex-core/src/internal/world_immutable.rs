@@ -4,7 +4,7 @@ use crate::internal::signal_manager::SignalManager;
 use crate::internal::world_extras::EventHandler;
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::panic::RefUnwindSafe;
 
 pub struct ImmutableWorld {
     pub(crate) signal_managers: HashMap<TypeId, Box<dyn AbstractSignalManager>>,
@@ -21,7 +21,9 @@ impl ImmutableWorld {
         }
     }
 
-    pub(crate) fn get_signal_manager<T: RefUnwindSafe + UnwindSafe + 'static>(&mut self) -> &mut SignalManager<T> {
+    pub(crate) fn get_signal_manager<T: RefUnwindSafe + 'static>(
+        &mut self,
+    ) -> &mut SignalManager<T> {
         self.signal_managers
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::<SignalManager<T>>::default())

@@ -1,7 +1,9 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::mem;
-use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
+use std::panic::catch_unwind;
+use std::panic::RefUnwindSafe;
+use std::panic::UnwindSafe;
 
 use crate::internal::cause::Cause;
 use crate::internal::change_buffer::ChangeBuffer;
@@ -16,8 +18,8 @@ pub(crate) fn invoke_user_code<R, P: RefUnwindSafe>(
     stable: &StableWorld,
     entity_storage: &mut EntityStorage,
     handler_name: &'static str,
-    causes: impl IntoIterator<Item=Cause>,
-    code: impl IntoIterator<Item=impl Code<P, R>>,
+    causes: impl IntoIterator<Item = Cause>,
+    code: impl IntoIterator<Item = impl Code<P, R>>,
     mut result_handler: impl FnMut(R),
     payload: &P,
 ) {
@@ -30,7 +32,8 @@ pub(crate) fn invoke_user_code<R, P: RefUnwindSafe>(
             let ctx = Ctx::new(payload, stable, entity_storage, &changes_ref);
             let result = code.invoke(ctx);
             (changes, result)
-        }).unwrap();
+        })
+        .unwrap();
         result_handler(result);
         changes.apply_to(volatile, entity_storage, &stable.component_mappings);
     }
@@ -42,29 +45,44 @@ pub(crate) trait Code<P, R>: UnwindSafe {
 }
 
 pub(crate) struct UserCode<P, R, F>
-    where
-        F: FnOnce(Ctx<P>) -> R,
+where
+    F: FnOnce(Ctx<P>) -> R,
 {
-    pd: PhantomData<(P, R)>,
+    _pd: UnwindSafePhantomData<(P, R)>,
     f: F,
 }
 
+struct UnwindSafePhantomData<T> {
+    pd: PhantomData<T>,
+}
+
+impl<T> Default for UnwindSafePhantomData<T> {
+    fn default() -> Self {
+        Self {
+            pd: Default::default(),
+        }
+    }
+}
+
+impl<T> UnwindSafe for UnwindSafePhantomData<T> {}
+
 impl<P, R, F> UserCode<P, R, F>
-    where
-        F: FnOnce(Ctx<P>) -> R,
+where
+    F: FnOnce(Ctx<P>) -> R,
 {
     pub(crate) fn new(f: F) -> Self {
         Self {
-            pd: Default::default(),
+            _pd: Default::default(),
             f,
         }
     }
 }
 
-impl<P: UnwindSafe, R: UnwindSafe, F> Code<P, R> for UserCode<P, R, F>
-    where
-        F: FnOnce(Ctx<P>) -> R,
-        F: UnwindSafe
+impl<P, R, F> Code<P, R> for UserCode<P, R, F>
+where
+    F: FnOnce(Ctx<P>) -> R,
+    F: UnwindSafe,
+    P: RefUnwindSafe,
 {
     fn invoke(self, ctx: Ctx<P>) -> R {
         (self.f)(ctx)

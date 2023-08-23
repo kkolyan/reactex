@@ -10,6 +10,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Mutex;
 
 #[derive(EcsComponent, Debug, Eq, PartialEq)]
 struct A {}
@@ -36,45 +37,45 @@ fn init_logging() {
 
 #[test]
 fn GlobalSignalReceived() {
-    let received = Rc::new(RefCell::new(vec![]));
+    let received = Rc::new(Mutex::new(vec![]));
     let mut world = ConfigurableWorld::create_for_test();
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |ctx| {
-            received.borrow_mut().push(*ctx.signal)
+            received.lock().unwrap().push(*ctx.signal)
         });
     }
     let mut world = world.seal();
     world.signal(Signal::new(42));
     world.execute_all();
 
-    assert_eq!(received.borrow().deref(), &vec! {Signal::new(42)});
+    assert_eq!(received.lock().unwrap().deref(), &vec! {Signal::new(42)});
 }
 
 #[test]
 fn GlobalSignalNotReceivedBeforeExecution() {
-    let received = Rc::new(RefCell::new(vec![]));
+    let received = Rc::new(Mutex::new(vec![]));
     let mut world = ConfigurableWorld::create_for_test();
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |ctx| {
-            received.borrow_mut().push(*ctx.signal)
+            received.lock().unwrap().push(*ctx.signal)
         });
     }
     let mut world = world.seal();
     world.signal(Signal::new(Default::default()));
 
-    assert_eq!(received.borrow().deref(), &vec! {});
+    assert_eq!(received.lock().unwrap().deref(), &vec! {});
 }
 
 #[test]
 fn GlobalSignalReceivedInOrderOfSubmission() {
-    let received = Rc::new(RefCell::new(vec![]));
+    let received = Rc::new(Mutex::new(vec![]));
     let mut world = ConfigurableWorld::create_for_test();
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |ctx| {
-            received.borrow_mut().push(*ctx.signal)
+            received.lock().unwrap().push(*ctx.signal)
         })
     };
     let mut world = world.seal();
@@ -83,25 +84,25 @@ fn GlobalSignalReceivedInOrderOfSubmission() {
     world.execute_all();
 
     assert_eq!(
-        received.borrow().deref(),
+        received.lock().unwrap().deref(),
         &vec! {Signal::new(17), Signal::new(42)}
     );
 }
 
 #[test]
 fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
-    let received = Rc::new(RefCell::new(Vec::<Box<dyn Debug>>::new()));
+    let received = Rc::new(Mutex::new(Vec::<Box<dyn Debug>>::new()));
     let mut world = ConfigurableWorld::create_for_test();
     {
         let received = received.clone();
         world.add_global_signal_handler::<AnotherSignal>("test", move |ctx| {
-            received.borrow_mut().push(Box::new(*ctx.signal))
+            received.lock().unwrap().push(Box::new(*ctx.signal))
         });
     }
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |ctx| {
-            received.borrow_mut().push(Box::new(*ctx.signal))
+            received.lock().unwrap().push(Box::new(*ctx.signal))
         });
     }
     let mut world = world.seal();
@@ -110,7 +111,7 @@ fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
     world.execute_all();
 
     assert_eq!(
-        format!("{:?}", received.borrow().deref()),
+        format!("{:?}", received.lock().unwrap().deref()),
         format!(
             "{:?}",
             vec! {Box::new(Signal::new(17)) as Box<dyn Debug>, Box::new(AnotherSignal())}
@@ -120,7 +121,7 @@ fn GlobalSignalReceivedInOrderOfSubmissionDifferentTypes() {
 
 #[test]
 fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
-    let received = Rc::new(RefCell::new(vec![]));
+    let received = Rc::new(Mutex::new(vec![]));
     let mut world = ConfigurableWorld::create_for_test();
     {
         world.add_global_signal_handler::<AnotherSignal>("test", move |ctx| {
@@ -130,7 +131,7 @@ fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
     {
         let received = received.clone();
         world.add_global_signal_handler::<Signal>("test", move |ctx| {
-            received.borrow_mut().push(*ctx.signal)
+            received.lock().unwrap().push(*ctx.signal)
         });
     }
     let mut world = world.seal();
@@ -138,20 +139,20 @@ fn GlobalSignalReceivedTransitiveAfterExecuteAll() {
     world.signal(AnotherSignal());
     world.execute_all();
 
-    assert_eq!(received.borrow().deref(), &vec! {Signal::new(17)});
+    assert_eq!(received.lock().unwrap().deref(), &vec! {Signal::new(17)});
 }
 
 #[test]
 fn EntityMatchedAndSignalReceived() {
-    let received_signals = Rc::new(RefCell::new(vec![]));
-    let matched_entities = Rc::new(RefCell::new(vec![]));
+    let received_signals = Rc::new(Mutex::new(vec![]));
+    let matched_entities = Rc::new(Mutex::new(vec![]));
     let mut world = ConfigurableWorld::create_for_test();
     {
         let received_signals = received_signals.clone();
         let matched_entities = matched_entities.clone();
         world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |ctx, entity| {
-            received_signals.borrow_mut().push(*ctx.signal);
-            matched_entities.borrow_mut().push(entity)
+            received_signals.lock().unwrap().push(*ctx.signal);
+            matched_entities.lock().unwrap().push(entity)
         });
     }
     let mut world = world.seal();
@@ -163,21 +164,24 @@ fn EntityMatchedAndSignalReceived() {
     world.signal(Signal::new(17));
     world.execute_all();
 
-    assert_eq!(received_signals.borrow().deref(), &vec! {Signal::new(17)});
-    assert_eq!(matched_entities.borrow().deref(), &vec! {e1});
+    assert_eq!(
+        received_signals.lock().unwrap().deref(),
+        &vec! {Signal::new(17)}
+    );
+    assert_eq!(matched_entities.lock().unwrap().deref(), &vec! {e1});
 }
 
 #[test]
 fn NotEntityMatchedAndSignalReceived() {
-    let received_signals = Rc::new(RefCell::new(vec![]));
-    let matched_entities = Rc::new(RefCell::new(vec![]));
+    let received_signals = Rc::new(Mutex::new(vec![]));
+    let matched_entities = Rc::new(Mutex::new(vec![]));
     let mut world = ConfigurableWorld::create_for_test();
     {
         let received_signals = received_signals.clone();
         let matched_entities = matched_entities.clone();
         world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |ctx, entity| {
-            received_signals.borrow_mut().push(*ctx.signal);
-            matched_entities.borrow_mut().push(entity)
+            received_signals.lock().unwrap().push(*ctx.signal);
+            matched_entities.lock().unwrap().push(entity)
         });
     }
     let mut world = world.seal();
@@ -187,18 +191,18 @@ fn NotEntityMatchedAndSignalReceived() {
     world.signal(Signal::new(17));
     world.execute_all();
 
-    assert_eq!(received_signals.borrow().deref(), &vec! {});
-    assert_eq!(matched_entities.borrow().deref(), &vec! {});
+    assert_eq!(received_signals.lock().unwrap().deref(), &vec! {});
+    assert_eq!(matched_entities.lock().unwrap().deref(), &vec! {});
 }
 
 #[test]
 fn cancelled_entity_removed_from_filter() {
-    let signals = Rc::new(Cell::new(0));
+    let signals = Rc::new(Mutex::new(0));
     let mut ecs = EcsContainer::create()
         .configure_in_test(|world| {
             let signals = signals.clone();
             world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |_, _| {
-                signals.set(signals.get() + 1);
+                *signals.lock().unwrap() += 1;
             })
         })
         .seal();
@@ -211,17 +215,17 @@ fn cancelled_entity_removed_from_filter() {
         ctx.send_signal(Signal { Value: 0 });
     });
 
-    assert_eq!(0, signals.get());
+    assert_eq!(0, *signals.lock().unwrap());
 }
 
 #[test]
 fn destroyed_entity_removed_from_filter() {
-    let signals = Rc::new(Cell::new(0));
+    let signals = Rc::new(Mutex::new(0));
     let mut ecs = EcsContainer::create()
         .configure_in_test(|world| {
             let signals = signals.clone();
             world.add_entity_signal_handler::<Signal>("test", ecs_filter!(A), move |_, _| {
-                signals.set(signals.get() + 1);
+                *signals.lock().unwrap() += 1;
             })
         })
         .seal();
@@ -238,5 +242,5 @@ fn destroyed_entity_removed_from_filter() {
         ctx.send_signal(Signal { Value: 0 });
     });
 
-    assert_eq!(0, signals.get());
+    assert_eq!(0, *signals.lock().unwrap());
 }

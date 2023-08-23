@@ -109,7 +109,9 @@ impl<K: PoolKey, V> SpecificPool<K, V> {
     }
 }
 
-impl<K: PoolKey + RefUnwindSafe + 'static, V: RefUnwindSafe + 'static> AbstractPool<K> for SpecificPool<K, V> {
+impl<K: PoolKey + RefUnwindSafe + 'static, V: RefUnwindSafe + 'static> AbstractPool<K>
+    for SpecificPool<K, V>
+{
     fn del(&mut self, key: &K) {
         self.del_internal(key);
     }

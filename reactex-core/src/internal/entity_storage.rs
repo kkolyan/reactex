@@ -9,14 +9,13 @@ use crate::world_result::EntityError::IsStale;
 use crate::world_result::EntityError::NotCommitted;
 use crate::world_result::EntityError::NotExists;
 use log::trace;
-use std::collections::VecDeque;
 use std::mem;
 use std::ops::Not;
 
 pub(crate) struct EntityStorage {
     entities: Box<[EntityBox]>,
     allocation_boundary: usize,
-    holes: VecDeque<usize>,
+    holes: Vec<usize>,
 }
 
 impl EntityStorage {
@@ -87,7 +86,7 @@ impl EntityStorage {
 
     pub(crate) fn new_entity(&mut self) -> InternalEntityKey {
         trace!("creating new entity");
-        let index = match self.holes.pop_front() {
+        let index = match self.holes.pop() {
             None => {
                 let index = self.allocation_boundary;
                 self.allocation_boundary += 1;
@@ -136,7 +135,7 @@ impl EntityStorage {
         if key == self.allocation_boundary - 1 {
             self.allocation_boundary -= 1;
         } else {
-            self.holes.push_back(key);
+            self.holes.push(key);
         }
     }
 
