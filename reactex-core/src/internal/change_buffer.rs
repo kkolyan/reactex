@@ -1,13 +1,11 @@
 use std::any::Any;
-use std::collections::HashMap;
-use std::collections::HashSet;
 
 use crate::internal::component_key::ComponentKey;
 use crate::internal::component_mappings::ComponentMappingStorage;
 use crate::internal::entity_key_generator::TemporaryEntityKeyStorage;
 use crate::internal::entity_storage::EntityStorage;
 use crate::internal::world_extras::InternalEntityKey;
-use crate::StableWorld;
+
 use crate::VolatileWorld;
 
 pub(crate) enum Change {

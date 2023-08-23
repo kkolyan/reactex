@@ -3,7 +3,7 @@
 use reactex_core::ecs_filter;
 use reactex_core::ConfigurableWorld;
 use reactex_macro::EcsComponent;
-use std::cell::RefCell;
+
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Mutex;

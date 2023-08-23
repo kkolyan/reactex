@@ -9,7 +9,7 @@ use crate::utils::pools::SpecificPool;
 use crate::Ctx;
 use log::trace;
 use std::any::TypeId;
-use std::ops::Deref;
+
 use std::panic::RefUnwindSafe;
 
 pub struct ConfigurableWorld {

@@ -1,6 +1,4 @@
 use crate::utils::opt_tiny_vec::OptTinyVec;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Cause {
@@ -25,8 +23,8 @@ impl Cause {
     }
 
     pub(crate) fn consequence(
-        title: &'static str,
-        causes: impl IntoIterator<Item = Cause>,
+        _title: &'static str,
+        _causes: impl IntoIterator<Item = Cause>,
     ) -> Cause {
         Cause {
             // inner: Rc::new(RefCell::new(CauseInner {

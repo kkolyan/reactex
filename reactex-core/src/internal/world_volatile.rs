@@ -13,7 +13,7 @@ use crate::internal::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::internal::signal_queue::SignalQueue;
 use crate::internal::signal_sender::SignalSender;
 use crate::internal::signal_storage::SignalStorage;
-use crate::internal::world_core::COMPONENT_NAMES;
+
 use crate::internal::world_extras::ComponentAdd;
 use crate::internal::world_extras::ComponentModify;
 use crate::internal::world_extras::DeleteQueue;
