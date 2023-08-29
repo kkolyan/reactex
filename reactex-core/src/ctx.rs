@@ -80,12 +80,9 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
             })));
     }
 
-    pub fn query(&self, filter: FilterDesc) -> impl Iterator<Item=Entity<'a>> + '_ {
+    pub fn query(&self, filter: FilterDesc) -> impl Iterator<Item = Entity<'a>> + '_ {
         self.stable
             .query(filter)
-            .map(|it| self
-                .get_entity(it)
-                .unwrap()
-            )
+            .map(|it| self.get_entity(it).unwrap())
     }
 }

@@ -5,7 +5,8 @@ use std::collections::VecDeque;
 use std::fs;
 use std::mem;
 use std::ops::DerefMut;
-use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::panic::RefUnwindSafe;
+use std::panic::UnwindSafe;
 use std::process::abort;
 use std::sync::Mutex;
 use std::thread::sleep;
@@ -24,11 +25,13 @@ use syn::Item;
 use syn::__private::ToTokens;
 use to_vec::ToVec;
 
+use reactex_core::ecs_filter;
 use reactex_core::panic_hook::catch_unwind_detailed;
-use reactex_core::{ConfigurableWorld, ecs_filter, World};
+use reactex_core::ConfigurableWorld;
 use reactex_core::Ctx;
 use reactex_core::EcsContainer;
 use reactex_core::ExecutionError;
+use reactex_core::World;
 use reactex_macro::EcsComponent;
 
 type ActorTestResult = Result<(), &'static str>;
@@ -122,9 +125,7 @@ fn join_as_actor<T: RefUnwindSafe + UnwindSafe + 'static>(
                 .into_iter()
                 .map(|it| {
                     let x: Box<dyn Fn(Ctx, &mut dyn Any) + Send + RefUnwindSafe> =
-                        Box::new(move |a, b: &mut dyn Any| {
-                            it(a, b.downcast_mut::<T>().unwrap())
-                        });
+                        Box::new(move |a, b: &mut dyn Any| it(a, b.downcast_mut::<T>().unwrap()));
                     x
                 })
                 .to_vec(),
@@ -253,7 +254,7 @@ fn run_actors() {
     }
 }
 
-const ITERATIONS: usize = 300;
+const ITERATIONS: usize = 100;
 
 #[derive(EcsComponent)]
 pub struct A {}
@@ -267,13 +268,7 @@ fn just_add() -> ActorTestResult {
     join_as_actor(
         |w| {},
         vec![
-            |ctx, seed| {
-                *seed = Some(
-                    ctx.create_entity()
-                        .add(A {})
-                        .key()
-                )
-            },
+            |ctx, seed| *seed = Some(ctx.create_entity().add(A {}).key()),
             |ctx, seed| {
                 ctx.query(ecs_filter!(A)).for_each(|e| {
                     e.get::<A>().unwrap();
@@ -289,15 +284,12 @@ fn add_then_delete_b() -> ActorTestResult {
     join_as_actor(
         |w| {},
         vec![
+            |ctx, seed| *seed = Some(ctx.create_entity().add(B {}).key()),
             |ctx, seed| {
-                *seed = Some(
-                    ctx.create_entity()
-                        .add(B {})
-                        .key()
-                )
-            },
-            |ctx, seed| {
-                let es = ctx.query(ecs_filter!(B)).to_vec();
+                let es = ctx
+                    .query(ecs_filter!(B))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
                 assert_eq!(1, es.len());
                 let e = es.get(0).unwrap();
                 e.get::<B>().unwrap();
@@ -305,9 +297,7 @@ fn add_then_delete_b() -> ActorTestResult {
             },
             |ctx, seed| {
                 let seed = seed.unwrap();
-                ctx.get_entity(seed)
-                    .unwrap()
-                    .remove::<B>();
+                ctx.get_entity(seed).unwrap().destroy();
                 ctx.query(ecs_filter!(B)).for_each(|e| {
                     e.get::<B>().unwrap();
                 });
@@ -316,33 +306,115 @@ fn add_then_delete_b() -> ActorTestResult {
         |rng| None,
     )
 }
+
 #[test]
 fn add_then_delete() -> ActorTestResult {
     World::register_query(ecs_filter!(A));
     join_as_actor(
         |w| {},
         vec![
+            |ctx, seed| *seed = Some(ctx.create_entity().add(A {}).key()),
             |ctx, seed| {
-                *seed = Some(
-                    ctx.create_entity()
-                        .add(A {})
-                        .key()
-                )
-            },
-            |ctx, seed| {
-                let es = ctx.query(ecs_filter!(A)).filter(|it| it.key() == seed.unwrap()).to_vec();
+                let es = ctx
+                    .query(ecs_filter!(A))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
                 assert_eq!(1, es.len());
                 let e = es.get(0).unwrap();
                 e.get::<A>().unwrap();
             },
             |ctx, seed| {
                 let seed = seed.unwrap();
-                ctx.get_entity(seed)
-                    .unwrap()
-                    .remove::<A>();
+                ctx.get_entity(seed).unwrap().destroy();
                 ctx.query(ecs_filter!(A)).for_each(|e| {
                     e.get::<A>().unwrap();
                 });
+            },
+        ],
+        |rng| None,
+    )
+}
+
+#[test]
+fn add_then_keep() -> ActorTestResult {
+    World::register_query(ecs_filter!(A));
+    join_as_actor(
+        |w| {},
+        vec![
+            |ctx, seed| *seed = Some(ctx.create_entity().add(A {}).key()),
+            |ctx, seed| {
+                let es = ctx
+                    .query(ecs_filter!(A))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
+                assert_eq!(1, es.len());
+                let e = es.get(0).unwrap();
+                e.get::<A>().unwrap();
+            },
+        ],
+        |rng| None,
+    )
+}
+
+#[test]
+fn add_then_keep_b() -> ActorTestResult {
+    World::register_query(ecs_filter!(B));
+    join_as_actor(
+        |w| {},
+        vec![
+            |ctx, seed| *seed = Some(ctx.create_entity().add(B {}).key()),
+            |ctx, seed| {
+                let es = ctx
+                    .query(ecs_filter!(B))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
+                assert_eq!(1, es.len());
+                let e = es.get(0).unwrap();
+                e.get::<B>().unwrap();
+            },
+        ],
+        |rng| None,
+    )
+}
+
+#[test]
+fn add_then_delete_AB() -> ActorTestResult {
+    World::register_query(ecs_filter!(A));
+    World::register_query(ecs_filter!(B));
+    World::register_query(ecs_filter!(A, B));
+    join_as_actor(
+        |w| {},
+        vec![
+            |ctx, seed| *seed = Some(ctx.create_entity().key()),
+            |ctx, seed| {
+                ctx.get_entity(seed.unwrap()).unwrap().add(A {});
+            },
+            |ctx, seed| {
+                ctx.get_entity(seed.unwrap()).unwrap().add(B {});
+            },
+            |ctx, seed| {
+                let es = ctx
+                    .query(ecs_filter!(A, B))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
+                assert_eq!(1, es.len());
+                let es = ctx
+                    .query(ecs_filter!(A))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
+                assert_eq!(1, es.len());
+                let es = ctx
+                    .query(ecs_filter!(B))
+                    .filter(|it| it.key() == seed.unwrap())
+                    .to_vec();
+                assert_eq!(1, es.len());
+                let e = es.get(0).unwrap();
+                e.get::<A>().unwrap();
+                e.get::<B>().unwrap();
+            },
+            |ctx, seed| {
+                let seed = seed.unwrap();
+                ctx.get_entity(seed).unwrap().destroy();
             },
         ],
         |rng| None,

@@ -1,10 +1,10 @@
 #![allow(non_snake_case)]
 
-use to_vec::ToVec;
 use reactex_core::ecs_filter;
 use reactex_core::ConfigurableWorld;
 use reactex_core::World;
 use reactex_macro::EcsComponent;
+use to_vec::ToVec;
 
 #[derive(EcsComponent, Debug, Default)]
 struct A {}

@@ -44,7 +44,9 @@ impl EntityStorage {
             Some(index) => index,
         };
 
-        let generation: EntityGeneration = self.entities.get(index)
+        let generation: EntityGeneration = self
+            .entities
+            .get(index)
             .map(|it| it.generation)
             .unwrap_or_else(EntityGeneration::new);
 

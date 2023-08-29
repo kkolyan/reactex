@@ -10,7 +10,7 @@ use crate::internal::entity_storage::EntityStorage;
 use crate::internal::entity_storage::ValidateUncommitted::AllowUncommitted;
 use crate::internal::entity_storage::ValidateUncommitted::DenyUncommitted;
 use crate::internal::filter_manager::FilterManager;
-use crate::internal::world_extras::{EntityIndex};
+use crate::internal::world_extras::EntityIndex;
 use crate::internal::world_pipeline::PipelineStep;
 use crate::utils::pool_pump::AbstractPoolPump;
 use crate::utils::pools::SpecificPool;
@@ -38,8 +38,7 @@ impl StableWorld {
     }
 
     pub(crate) fn query(&self, filter: FilterDesc) -> impl Iterator<Item = EntityKey> + '_ {
-        self
-            .filter_manager
+        self.filter_manager
             .get_filter(filter)
             .matched_entities
             .as_ref()

@@ -83,7 +83,7 @@ impl World {
         self.stable.entity_exists(entity, &self.entity_storage)
     }
 
-    pub fn query(&mut self, filter: FilterDesc) -> impl Iterator<Item=EntityKey> + '_ {
+    pub fn query(&mut self, filter: FilterDesc) -> impl Iterator<Item = EntityKey> + '_ {
         self.stable.query(filter)
     }
 }
