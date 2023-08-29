@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::any::Any;
 use std::backtrace::Backtrace;
 use std::collections::HashMap;
@@ -12,7 +14,6 @@ use std::sync::Mutex;
 use std::thread::sleep;
 use std::thread::spawn;
 use std::time::Duration;
-use std::time::SystemTime;
 
 use ctor::ctor;
 use log::error;
@@ -53,7 +54,6 @@ struct Actor {
 
 struct Context {
     expected_tests: usize,
-    initialized_at: SystemTime,
     actors: Vec<ActorTemplate>,
     runtime_spawned: bool,
 }
@@ -111,7 +111,6 @@ fn join_as_actor<T: RefUnwindSafe + UnwindSafe + 'static>(
             *ctx = Some(Context {
                 expected_tests,
                 actors: vec![],
-                initialized_at: SystemTime::now(),
                 runtime_spawned: false,
             });
         }
@@ -266,23 +265,23 @@ pub struct B {}
 fn just_add() -> ActorTestResult {
     World::register_query(ecs_filter!(A));
     join_as_actor(
-        |w| {},
+        |_w| {},
         vec![
             |ctx, seed| *seed = Some(ctx.create_entity().add(A {}).key()),
-            |ctx, seed| {
+            |ctx, _seed| {
                 ctx.query(ecs_filter!(A)).for_each(|e| {
                     e.get::<A>().unwrap();
                 });
             },
         ],
-        |rng| None,
+        |_rng| None,
     )
 }
 #[test]
 fn add_then_delete_b() -> ActorTestResult {
     World::register_query(ecs_filter!(B));
     join_as_actor(
-        |w| {},
+        |_w| {},
         vec![
             |ctx, seed| *seed = Some(ctx.create_entity().add(B {}).key()),
             |ctx, seed| {
@@ -303,7 +302,7 @@ fn add_then_delete_b() -> ActorTestResult {
                 });
             },
         ],
-        |rng| None,
+        |_rng| None,
     )
 }
 
@@ -311,7 +310,7 @@ fn add_then_delete_b() -> ActorTestResult {
 fn add_then_delete() -> ActorTestResult {
     World::register_query(ecs_filter!(A));
     join_as_actor(
-        |w| {},
+        |_w| {},
         vec![
             |ctx, seed| *seed = Some(ctx.create_entity().add(A {}).key()),
             |ctx, seed| {
@@ -331,7 +330,7 @@ fn add_then_delete() -> ActorTestResult {
                 });
             },
         ],
-        |rng| None,
+        |_rng| None,
     )
 }
 
@@ -339,7 +338,7 @@ fn add_then_delete() -> ActorTestResult {
 fn add_then_keep() -> ActorTestResult {
     World::register_query(ecs_filter!(A));
     join_as_actor(
-        |w| {},
+        |_w| {},
         vec![
             |ctx, seed| *seed = Some(ctx.create_entity().add(A {}).key()),
             |ctx, seed| {
@@ -352,7 +351,7 @@ fn add_then_keep() -> ActorTestResult {
                 e.get::<A>().unwrap();
             },
         ],
-        |rng| None,
+        |_rng| None,
     )
 }
 
@@ -360,7 +359,7 @@ fn add_then_keep() -> ActorTestResult {
 fn add_then_keep_b() -> ActorTestResult {
     World::register_query(ecs_filter!(B));
     join_as_actor(
-        |w| {},
+        |_w| {},
         vec![
             |ctx, seed| *seed = Some(ctx.create_entity().add(B {}).key()),
             |ctx, seed| {
@@ -373,7 +372,7 @@ fn add_then_keep_b() -> ActorTestResult {
                 e.get::<B>().unwrap();
             },
         ],
-        |rng| None,
+        |_rng| None,
     )
 }
 
@@ -383,7 +382,7 @@ fn add_then_delete_AB() -> ActorTestResult {
     World::register_query(ecs_filter!(B));
     World::register_query(ecs_filter!(A, B));
     join_as_actor(
-        |w| {},
+        |_w| {},
         vec![
             |ctx, seed| *seed = Some(ctx.create_entity().key()),
             |ctx, seed| {
@@ -417,6 +416,6 @@ fn add_then_delete_AB() -> ActorTestResult {
                 ctx.get_entity(seed).unwrap().destroy();
             },
         ],
-        |rng| None,
+        |_rng| None,
     )
 }
