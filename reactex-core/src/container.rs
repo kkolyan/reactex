@@ -1,6 +1,8 @@
 use crate::ctx::Ctx;
 use crate::internal::execution::invoke_user_code;
+use crate::internal::execution::ExecutionResult;
 use crate::internal::execution::UserCode;
+use crate::internal::world_pipeline::execute_all_internal;
 use crate::module::Module;
 use crate::ConfigurableWorld;
 use crate::World;
@@ -30,7 +32,7 @@ impl EcsContainerBuilder {
 
     pub fn seal(self) -> EcsContainer {
         EcsContainer {
-            world: self.world.seal(),
+            world: self.world.fetus,
         }
     }
 }
@@ -46,21 +48,24 @@ impl EcsContainer {
         }
     }
 
-    pub fn execute_once<T>(&mut self, actions: impl (FnOnce(Ctx) -> T) + UnwindSafe) -> T {
+    pub fn execute_once<T>(
+        &mut self,
+        actions: impl (FnOnce(Ctx) -> T) + UnwindSafe,
+    ) -> (Option<T>, ExecutionResult) {
         trace!("execute_once");
         let stable = &mut self.world.stable;
-        let mut result = None;
-        invoke_user_code(
+        let mut return_value = None;
+        let mut result = invoke_user_code(
             &mut self.world.volatile,
             stable,
             &mut self.world.entity_storage,
             "execute_once",
             [],
             [UserCode::new(actions)],
-            |r| result = Some(r),
+            |r| return_value = Some(r),
             &(),
         );
-        self.world.execute_all();
-        result.unwrap()
+        result += execute_all_internal(&mut self.world);
+        (return_value, result)
     }
 }

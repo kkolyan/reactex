@@ -16,6 +16,7 @@ pub(crate) mod test_facade;
 pub(crate) mod utils;
 pub(crate) mod world_result;
 
+pub mod panic_hook;
 pub use ctor;
 pub use reactex_macro::*;
 
@@ -27,6 +28,9 @@ pub use entity_key::*;
 pub use entity_mut::*;
 pub use entity_uncommitted::*;
 pub use filter::*;
+pub use internal::cause::Cause;
+pub use internal::execution::ExecutionError;
+pub use internal::execution::ExecutionResult;
 pub use internal::world_configure::ConfigurableWorld;
 pub use internal::world_core::World;
 pub use internal::world_stable::StableWorld;

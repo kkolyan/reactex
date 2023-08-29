@@ -40,7 +40,8 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
             .generate_temporary(&mut changes.entity_key_generator);
         let key = entity_key.inner;
 
-        self.entity_storage.generate_temporary(&mut changes.entity_key_generator);
+        self.entity_storage
+            .generate_temporary(&mut changes.entity_key_generator);
         changes.changes.push(Change::EntityCreate(entity_key));
         UncommittedEntity {
             key,
@@ -50,8 +51,8 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
         }
     }
 
-    pub fn get_entity<'b>(&'b self, key: EntityKey) -> Option<Entity<'a>> {
-        let result = key.validate(&self.entity_storage, ValidateUncommitted::DenyUncommitted);
+    pub fn get_entity(&self, key: EntityKey) -> Option<Entity<'a>> {
+        let result = key.validate(self.entity_storage, ValidateUncommitted::DenyUncommitted);
         let entity_key = match result {
             Ok(it) => Some(it),
             Err(err) => match err {
@@ -79,7 +80,12 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
             })));
     }
 
-    pub fn query(&self, filter: FilterDesc, callback: impl FnMut(EntityKey)) {
-        self.stable.query(filter, callback);
+    pub fn query(&self, filter: FilterDesc) -> impl Iterator<Item=Entity<'a>> + '_ {
+        self.stable
+            .query(filter)
+            .map(|it| self
+                .get_entity(it)
+                .unwrap()
+            )
     }
 }

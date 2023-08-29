@@ -3,6 +3,7 @@ use crate::filter::FilterDesc;
 use crate::internal::component_key::ComponentKey;
 use crate::internal::entity_storage::EntityStorage;
 use crate::internal::execution::invoke_user_code;
+use crate::internal::execution::ExecutionResult;
 use crate::internal::execution::UserCode;
 use crate::internal::filter_manager_events::FilterComponentChange;
 use crate::internal::world_extras::ComponentEventType;
@@ -140,15 +141,15 @@ impl World {
         self.volatile.component_data_uncommitted.clear();
     }
 
-    pub(crate) fn invoke_disappear_handlers(&mut self) {
-        self.invoke_handlers(ComponentEventType::Disappear);
+    pub(crate) fn invoke_disappear_handlers(&mut self, result: &mut ExecutionResult) {
+        *result += self.invoke_handlers(ComponentEventType::Disappear);
     }
 
-    pub(crate) fn invoke_appear_handlers(&mut self) {
-        self.invoke_handlers(ComponentEventType::Appear);
+    pub(crate) fn invoke_appear_handlers(&mut self, result: &mut ExecutionResult) {
+        *result += self.invoke_handlers(ComponentEventType::Appear);
     }
 
-    fn invoke_handlers(&mut self, event_type: ComponentEventType) {
+    fn invoke_handlers(&mut self, event_type: ComponentEventType) -> ExecutionResult {
         let filters = mem::take(match event_type {
             ComponentEventType::Appear => &mut self.stable.filter_manager.with_new_appear_events,
             ComponentEventType::Disappear => {
@@ -159,6 +160,8 @@ impl World {
             ComponentEventType::Appear => &self.immutable.on_appear,
             ComponentEventType::Disappear => &self.immutable.on_disappear,
         };
+        let mut result = ExecutionResult::new();
+
         for filter in filters {
             if let Some(handlers) = handlers.get(&filter) {
                 for handler in handlers {
@@ -171,7 +174,7 @@ impl World {
                     if let Some(events) = events {
                         for (entity, causes) in events {
                             trace!("invoke event {:?} for {}", event_type, entity);
-                            invoke_user_code(
+                            result += invoke_user_code(
                                 &mut self.volatile,
                                 &mut self.stable,
                                 &mut self.entity_storage,
@@ -188,6 +191,8 @@ impl World {
                 }
             }
         }
+
+        result
     }
 
     pub(crate) fn flush_entity_destroy_actions(&mut self) {
@@ -284,14 +289,14 @@ impl World {
         }
     }
 
-    pub(crate) fn invoke_signal_handler(&mut self) {
+    pub(crate) fn invoke_signal_handler(&mut self, result: &mut ExecutionResult) {
         if let Some(signal) = self.volatile.signal_queue.signals.pop_front() {
             let manager = self
                 .immutable
                 .signal_managers
                 .get(&signal.payload_type)
                 .unwrap();
-            manager.invoke(
+            *result += manager.invoke(
                 signal,
                 &mut self.stable,
                 &mut self.volatile,

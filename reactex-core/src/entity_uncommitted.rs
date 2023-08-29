@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::ops::Add;
 
 use crate::component::EcsComponent;
 use crate::entity::Entity;
@@ -31,7 +32,7 @@ impl<'a> UncommittedEntity<'a> {
         .destroy();
     }
 
-    pub fn add<TComponent: EcsComponent>(&self, value: TComponent) {
+    pub fn add<TComponent: EcsComponent>(self, value: TComponent) -> UncommittedEntity<'a> {
         Entity {
             key: self.key,
             stable: self.stable,
@@ -39,5 +40,14 @@ impl<'a> UncommittedEntity<'a> {
             changes: self.changes,
         }
         .add(value);
+        self
+    }
+}
+
+impl<'a, TComponent: EcsComponent> Add<TComponent> for UncommittedEntity<'a> {
+    type Output = Self;
+
+    fn add(self, rhs: TComponent) -> Self::Output {
+        UncommittedEntity::add(self, rhs)
     }
 }

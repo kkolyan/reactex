@@ -23,12 +23,18 @@ impl EntityStorage {
         if self.holes.len() <= state.used_holes {
             return None;
         }
-        let result = self.holes.get(self.holes.len() - state.used_holes - 1).copied();
+        let result = self
+            .holes
+            .get(self.holes.len() - state.used_holes - 1)
+            .copied();
         state.used_holes += 1;
         return result;
     }
 
-    pub(crate) fn generate_temporary(&self, state: &mut TemporaryEntityKeyStorage) -> TempEntityKey {
+    pub(crate) fn generate_temporary(
+        &self,
+        state: &mut TemporaryEntityKeyStorage,
+    ) -> TempEntityKey {
         let index = match self.holes_pop(state) {
             None => {
                 let index = self.allocation_boundary + state.tail_allocations;
@@ -38,7 +44,9 @@ impl EntityStorage {
             Some(index) => index,
         };
 
-        let mut generation: EntityGeneration = self.entities.get(index).unwrap().generation;
+        let generation: EntityGeneration = self.entities.get(index)
+            .map(|it| it.generation)
+            .unwrap_or_else(EntityGeneration::new);
 
         let key = InternalEntityKey {
             index: EntityIndex {
@@ -55,7 +63,9 @@ impl EntityStorage {
 
         let index = input.inner.index;
 
-        let generation = self.entities.get_mut(input.inner.index.index as usize)
+        let generation = self
+            .entities
+            .get_mut(input.inner.index.index as usize)
             .map(|it| it.generation)
             .unwrap_or(EntityGeneration::new());
         assert_eq!(generation.to_next_generation(), input.inner.generation);
@@ -70,7 +80,10 @@ impl EntityStorage {
             self.allocation_boundary += 1;
         }
 
-        let entity = self.entities.get_mut(input.inner.index.index as usize).unwrap();
+        let entity = self
+            .entities
+            .get_mut(input.inner.index.index as usize)
+            .unwrap();
         entity.exists = true;
         entity.committed = false;
         entity.generation = input.inner.generation;
@@ -181,7 +194,7 @@ impl EntityStorage {
             .committed = true;
     }
 
-    pub(crate) fn get_all(&self) -> impl Iterator<Item=InternalEntityKey> + '_ {
+    pub(crate) fn get_all(&self) -> impl Iterator<Item = InternalEntityKey> + '_ {
         self.entities
             .iter()
             .enumerate()

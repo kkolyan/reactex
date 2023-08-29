@@ -118,26 +118,6 @@ impl VolatileWorld {
         Ok(())
     }
 
-    pub(crate) fn add_component_dyn(
-        &mut self,
-        entity: EntityKey,
-        component_type: ComponentType,
-        component: Box<dyn Any>,
-        entity_storage: &EntityStorage,
-    ) -> WorldResult {
-        trace!(
-            "user requested to add component {}<{}>",
-            entity,
-            component_type
-        );
-
-        let entity = entity.validate(entity_storage, AllowUncommitted)?;
-
-        self.add_component_dyn_internal(ComponentKey::new(entity, component_type), component);
-
-        Ok(())
-    }
-
     pub(crate) fn add_component_dyn_internal(
         &mut self,
         component_key: ComponentKey,

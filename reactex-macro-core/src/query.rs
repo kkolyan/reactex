@@ -159,11 +159,10 @@ fn transform_closure(
     visitor.next_wrapper_id += 1;
     let wrapper = quote! {
         fn #wrapper_name(#ctx: ::reactex_core::Ctx, mut callback: impl FnMut(#arg_decls)) {
-            #ctx.query(#ecs_filter, |entity_key| {
-                let __entity__ = #ctx.get_entity(entity_key).unwrap();
+            for __entity__ in #ctx.query(#ecs_filter) {
                 #assignments
                 callback(#arg_passes);
-            });
+            }
         }
     };
     statements_before.push(parse2::<Stmt>(wrapper.clone()).unwrap_or_else(|err| {

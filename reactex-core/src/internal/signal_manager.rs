@@ -5,6 +5,7 @@ use std::panic::RefUnwindSafe;
 use crate::entity_key::EntityKey;
 use crate::internal::entity_storage::EntityStorage;
 use crate::internal::execution::invoke_user_code;
+use crate::internal::execution::ExecutionResult;
 use crate::internal::execution::UserCode;
 use crate::internal::filter_manager::InternalFilterKey;
 use crate::internal::world_extras::Signal;
@@ -19,7 +20,7 @@ pub(crate) trait AbstractSignalManager {
         stable: &mut StableWorld,
         volatile: &mut VolatileWorld,
         entity_storage: &mut EntityStorage,
-    );
+    ) -> ExecutionResult;
     fn as_any_mut(&mut self) -> AnySignalManager;
 }
 
@@ -64,7 +65,7 @@ impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
         stable: &mut StableWorld,
         volatile: &mut VolatileWorld,
         entity_storage: &mut EntityStorage,
-    ) {
+    ) -> ExecutionResult {
         let payload = volatile
             .signal_storage
             .payloads
@@ -76,8 +77,10 @@ impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
             .del_and_get(&signal.data_key)
             .unwrap();
 
+        let mut result = ExecutionResult::new();
+
         for handler in &self.global_handlers {
-            invoke_user_code(
+            result += invoke_user_code(
                 volatile,
                 stable,
                 entity_storage,
@@ -98,7 +101,7 @@ impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
                     .get_filter_by_key(*filter)
                     .matched_entities
                 {
-                    invoke_user_code(
+                    result += invoke_user_code(
                         volatile,
                         stable,
                         entity_storage,
@@ -113,6 +116,8 @@ impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
                 }
             }
         }
+
+        result
     }
 
     fn as_any_mut(&mut self) -> AnySignalManager {

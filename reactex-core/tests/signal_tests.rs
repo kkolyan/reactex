@@ -228,11 +228,12 @@ fn destroyed_entity_removed_from_filter() {
             })
         })
         .seal();
-    let e1 = ecs.execute_once(|ctx| {
+    let (e1, _) = ecs.execute_once(|ctx| {
         let e1 = ctx.create_entity();
         e1.add(A {});
         e1.key()
     });
+    let e1 = e1.unwrap();
     ecs.execute_once(|ctx| {
         let e1 = ctx.get_entity(e1).unwrap();
         e1.destroy();

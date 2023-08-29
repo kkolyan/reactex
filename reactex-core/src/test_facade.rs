@@ -7,17 +7,10 @@ use crate::internal::world_pipeline::execute_all_internal;
 use crate::world_result::WorldResult;
 use crate::Ctx;
 use std::panic::RefUnwindSafe;
-
 impl ConfigurableWorld {
     // I'm just too lazy to rewrite all tests to user API
     pub fn create_for_test() -> ConfigurableWorld {
         ConfigurableWorld::new()
-    }
-
-    pub(crate) fn new() -> Self {
-        Self {
-            fetus: World::new(),
-        }
     }
 
     pub fn seal(self) -> World {
@@ -67,7 +60,10 @@ impl World {
     }
 
     pub fn execute_all(&mut self) {
-        execute_all_internal(self);
+        let result = execute_all_internal(self);
+        if !result.errors.is_empty() {
+            panic!("execution completed with errors: {:?}", result);
+        }
     }
 }
 
@@ -87,8 +83,8 @@ impl World {
         self.stable.entity_exists(entity, &self.entity_storage)
     }
 
-    pub fn query(&mut self, filter: FilterDesc, callback: impl FnMut(EntityKey)) {
-        self.stable.query(filter, callback)
+    pub fn query(&mut self, filter: FilterDesc) -> impl Iterator<Item=EntityKey> + '_ {
+        self.stable.query(filter)
     }
 }
 

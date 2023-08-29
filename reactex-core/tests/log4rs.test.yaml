@@ -3,9 +3,9 @@ appenders:
     kind: console
     encoder:
       # https://docs.rs/log4rs/0.11.0/log4rs/encode/pattern/index.html#formatters
-      pattern: "{d(%H:%M:%S%.3f)} | {({l}):5.5} — {m}{n}"
+      pattern: "{d(%H:%M:%S%.3f)} | {T} | {({l}):5.5} — {m}{n}"
 root:
-  level: info
+  level: trace
   appenders:
     - stdout
 loggers:

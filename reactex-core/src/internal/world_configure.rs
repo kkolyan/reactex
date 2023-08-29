@@ -16,6 +16,14 @@ pub struct ConfigurableWorld {
     pub(crate) fetus: World,
 }
 
+impl ConfigurableWorld {
+    pub(crate) fn new() -> Self {
+        Self {
+            fetus: World::new(),
+        }
+    }
+}
+
 impl World {
     pub(crate) fn add_global_signal_handler<T: RefUnwindSafe + 'static>(
         &mut self,

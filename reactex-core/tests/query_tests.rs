@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use to_vec::ToVec;
 use reactex_core::ecs_filter;
 use reactex_core::ConfigurableWorld;
 use reactex_core::World;
@@ -18,14 +19,13 @@ fn CommittedEntityQueriedByPreCreatedQuery() {
 
     let mut world = ConfigurableWorld::create_for_test().seal();
 
-    world.query(query_A, |_| {});
+    let _ = world.query(query_A);
 
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_A, |e| matched.push(e));
+    let matched = world.query(query_A).to_vec();
 
     assert_eq!(matched, vec![e1]);
 }
@@ -40,8 +40,7 @@ fn CommittedEntityQueriedByLateQuery() {
     world.add_component(e1, A::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_A, |e| matched.push(e));
+    let matched = world.query(query_A).to_vec();
 
     assert_eq!(matched, vec![e1]);
 }
@@ -54,8 +53,7 @@ fn UnCommittedEntityNotShown() {
     let e1 = world.create_entity();
     world.add_component(e1, A::default()).unwrap();
 
-    let mut matched = vec![];
-    world.query(query_A, |e| matched.push(e));
+    let matched = world.query(query_A).to_vec();
 
     assert_eq!(matched, vec![]);
 }
@@ -71,8 +69,7 @@ fn ANotMatchesB() {
     world.add_component(eB, B::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_B, |e| matched.push(e));
+    let matched = world.query(query_B).to_vec();
 
     assert_eq!(matched, vec![eB]);
 }
@@ -87,8 +84,7 @@ fn EmptyNotMatches() {
     world.add_component(eB, B::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_B, |e| matched.push(e));
+    let matched = world.query(query_B).to_vec();
 
     assert_eq!(matched, vec![eB]);
 }
@@ -103,8 +99,7 @@ fn ABMatchesAB() {
     world.add_component(eAB, B::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_AB, |e| matched.push(e));
+    let matched = world.query(query_AB).to_vec();
 
     assert_eq!(matched, vec![eAB]);
 }
@@ -118,8 +113,7 @@ fn ANotMatchedToAB() {
     world.add_component(e1, A::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_AB, |e| matched.push(e));
+    let matched = world.query(query_AB).to_vec();
 
     assert_eq!(matched, vec![]);
 }
@@ -134,8 +128,7 @@ fn ABMatchedToA() {
     world.add_component(eAB, B::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_A, |e| matched.push(e));
+    let matched = world.query(query_A).to_vec();
 
     assert_eq!(matched, vec![eAB]);
 }
@@ -148,8 +141,7 @@ fn EmptyMatchesEmpty() {
     let eEmpty = world.create_entity();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_all, |e| matched.push(e));
+    let matched = world.query(query_all).to_vec();
 
     assert_eq!(matched, vec![eEmpty]);
 }
@@ -163,8 +155,7 @@ fn AMatchesEmpty() {
     world.add_component(eA, A::default()).unwrap();
     world.execute_all();
 
-    let mut matched = vec![];
-    world.query(query_all, |e| matched.push(e));
+    let matched = world.query(query_all).to_vec();
 
     assert_eq!(matched, vec![eA]);
 }
