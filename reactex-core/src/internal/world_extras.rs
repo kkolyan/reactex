@@ -7,7 +7,7 @@ use crate::Ctx;
 use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::fmt::Formatter;
 use std::panic::RefUnwindSafe;
 
@@ -38,6 +38,7 @@ pub(crate) struct EventHandler {
 
 pub(crate) struct Signal {
     pub(crate) payload_type: TypeId,
+    pub(crate) payload_type_name: &'static str,
     pub(crate) data_key: SignalDataKey,
     pub(crate) cause: Cause,
 }
@@ -52,7 +53,7 @@ pub(crate) struct ComponentModify {
     pub(crate) callback: Box<dyn FnOnce(&mut dyn Any)>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct InternalEntityKey {
     pub(crate) index: EntityIndex,
     pub(crate) generation: EntityGeneration,
@@ -62,6 +63,13 @@ pub(crate) struct InternalEntityKey {
 impl Display for InternalEntityKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.index.index, self.generation.0)
+    }
+}
+
+impl Debug for InternalEntityKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+        // write!(f, "EntityKey({}:{})", self.index.index, self.generation.0)
     }
 }
 

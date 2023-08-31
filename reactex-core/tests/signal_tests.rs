@@ -205,12 +205,12 @@ fn cancelled_entity_removed_from_filter() {
             })
         })
         .seal();
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         let e1 = ctx.create_entity();
         e1.add(A {});
         e1.destroy();
     });
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         ctx.send_signal(Signal { Value: 0 });
     });
 
@@ -228,17 +228,17 @@ fn destroyed_entity_removed_from_filter() {
             })
         })
         .seal();
-    let (e1, _) = ecs.execute_once(|ctx| {
+    let (e1, _) = ecs.execute_once("test", |ctx| {
         let e1 = ctx.create_entity();
         e1.add(A {});
         e1.key()
     });
     let e1 = e1.unwrap();
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         let e1 = ctx.get_entity(e1).unwrap();
         e1.destroy();
     });
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         ctx.send_signal(Signal { Value: 0 });
     });
 

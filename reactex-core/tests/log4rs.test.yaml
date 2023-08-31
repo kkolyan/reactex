@@ -3,11 +3,32 @@ appenders:
     kind: console
     encoder:
       # https://docs.rs/log4rs/0.11.0/log4rs/encode/pattern/index.html#formatters
-      pattern: "{d(%H:%M:%S%.3f)} | {T} | {({l}):5.5} — {m}{n}"
+      pattern: "{d(%H:%M:%S%.3f)} | {T} | {X(tx):>5} | {({l}):5.5} — {m} (( {M} )){n}"
 root:
   level: trace
   appenders:
     - stdout
 loggers:
   reactex_core:
+    level: info
+  actors_based_tests:
+    level: info
+
+  reactex_core::internal::change_buffer:
     level: trace
+
+  reactex_core::internal::world_pipeline_steps:
+    level: trace
+
+  reactex_core::internal::signal_manager:
+    level: trace
+
+  reactex_core::container:
+    level: trace
+
+  reactex_core::internal::world_pipeline:
+    level: info
+  reactex_core::internal::filter_manager_events:
+    level: info
+  reactex_core::internal::filter_manager:
+    level: info

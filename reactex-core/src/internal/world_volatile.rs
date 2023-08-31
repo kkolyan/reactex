@@ -25,6 +25,7 @@ use crate::world_result::WorldResult;
 use crate::ComponentType;
 use log::trace;
 use std::any::Any;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub struct VolatileWorld {

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use crate::ctx::Ctx;
 use crate::internal::execution::invoke_user_code;
 use crate::internal::execution::ExecutionResult;
@@ -50,16 +51,17 @@ impl EcsContainer {
 
     pub fn execute_once<T>(
         &mut self,
+        name: &'static str,
         actions: impl (FnOnce(Ctx) -> T) + UnwindSafe,
     ) -> (Option<T>, ExecutionResult) {
-        trace!("execute_once");
+        trace!("invoke {}", name);
         let stable = &mut self.world.stable;
         let mut return_value = None;
         let mut result = invoke_user_code(
             &mut self.world.volatile,
             stable,
             &mut self.world.entity_storage,
-            "execute_once",
+            name,
             [],
             [UserCode::new(actions)],
             |r| return_value = Some(r),

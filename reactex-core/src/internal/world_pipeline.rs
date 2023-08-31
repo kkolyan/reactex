@@ -127,5 +127,7 @@ pub(crate) fn execute_all_internal(world: &mut World) -> ExecutionResult {
             }
         }
     }
+    world.tx += 1;
+    log_mdc::insert("tx", world.tx.to_string());
     result
 }

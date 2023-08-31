@@ -158,7 +158,7 @@ fn main() {
         .seal();
 
     // do some actions on the top level (outside of event callbacks)
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         // the code inside closure passed to `execute_once` has the same rules, abilities and limitations
         // as the code inside event handlers
 
@@ -166,12 +166,12 @@ fn main() {
         entity.add(A {});
     });
 
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         // orchestrate application using signals
         ctx.send_signal(SomeSignal);
     });
 
-    ecs.execute_once(|ctx| {
+    ecs.execute_once("test", |ctx| {
         let mut d = D { x: 0 };
 
         // query-annotated closure  is invoked right here for all matched entities.

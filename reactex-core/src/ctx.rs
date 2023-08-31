@@ -1,3 +1,4 @@
+use std::any::type_name;
 use crate::entity::Entity;
 use crate::entity_key::EntityKey;
 use crate::entity_uncommitted::UncommittedEntity;
@@ -75,12 +76,15 @@ impl<'a, TSignal> Ctx<'a, TSignal> {
         let mut changes = self.changes.borrow_mut();
         changes
             .changes
-            .push(Change::SignalSent(Box::new(|volatile| {
-                volatile.signal(signal);
-            })));
+            .push(Change::SignalSend(
+                Box::new(|volatile| {
+                    volatile.signal(signal);
+                }),
+                type_name::<T>(),
+            ));
     }
 
-    pub fn query(&self, filter: FilterDesc) -> impl Iterator<Item = Entity<'a>> + '_ {
+    pub fn query(&self, filter: FilterDesc) -> impl Iterator<Item=Entity<'a>> + '_ {
         self.stable
             .query(filter)
             .map(|it| self.get_entity(it).unwrap())

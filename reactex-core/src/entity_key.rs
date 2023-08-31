@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct EntityKey {
     pub(crate) inner: InternalEntityKey,
 }
@@ -14,6 +14,12 @@ pub struct EntityKey {
 impl Display for EntityKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.inner, f)
+    }
+}
+
+impl Debug for EntityKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.inner, f)
     }
 }
 

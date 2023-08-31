@@ -1,6 +1,8 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::panic::RefUnwindSafe;
+use log::trace;
 
 use crate::entity_key::EntityKey;
 use crate::internal::entity_storage::EntityStorage;
@@ -80,6 +82,7 @@ impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
         let mut result = ExecutionResult::new();
 
         for handler in &self.global_handlers {
+            trace!("invoke global signal handler {}", handler.name);
             result += invoke_user_code(
                 volatile,
                 stable,
@@ -108,6 +111,7 @@ impl<T: RefUnwindSafe + 'static> AbstractSignalManager for SignalManager<T> {
                         handler.name,
                         [signal.cause.clone()],
                         matched_entities.iter().map(|entity| {
+                            trace!("invoke signal handler {} for {}", handler.name, entity);
                             UserCode::new(|ctx| (handler.callback)(ctx, entity.export()))
                         }),
                         |_| {},

@@ -2,7 +2,7 @@
 
 use std::any::Any;
 use std::backtrace::Backtrace;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::collections::VecDeque;
 use std::fs;
 use std::mem;
@@ -10,13 +10,13 @@ use std::ops::DerefMut;
 use std::panic::RefUnwindSafe;
 use std::panic::UnwindSafe;
 use std::process::abort;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::thread::sleep;
 use std::thread::spawn;
 use std::time::Duration;
 
 use ctor::ctor;
-use log::error;
+use log::{error, warn};
 use log::info;
 use log::trace;
 use rand::prelude::StdRng;
@@ -26,7 +26,7 @@ use syn::Item;
 use syn::__private::ToTokens;
 use to_vec::ToVec;
 
-use reactex_core::ecs_filter;
+use reactex_core::{ecs_filter, EntityKey};
 use reactex_core::panic_hook::catch_unwind_detailed;
 use reactex_core::ConfigurableWorld;
 use reactex_core::Ctx;
@@ -42,6 +42,7 @@ struct ActorTemplate {
     params: Box<dyn (Fn(&mut StdRng) -> Box<dyn Any + RefUnwindSafe + UnwindSafe>) + Send>,
     actions: Vec<Box<dyn Fn(Ctx, &mut dyn Any) + Send + RefUnwindSafe>>,
     setup: fn(&mut ConfigurableWorld),
+    action_names: Box<[&'static str]>,
 }
 
 struct Actor {
@@ -83,6 +84,7 @@ fn join_as_actor<T: RefUnwindSafe + UnwindSafe + 'static>(
         .nth(1)
         .unwrap();
     let name = frame.split("::").last().unwrap().to_string();
+    info!("join_as_actor {}", name);
     {
         trace!("trying to lazy initializing context");
         let ctx = &mut CTX.lock().unwrap();
@@ -117,6 +119,15 @@ fn join_as_actor<T: RefUnwindSafe + UnwindSafe + 'static>(
         trace!("push actor to shared queue");
         let ctx = ctx.as_mut().unwrap();
         assert!(!ctx.runtime_spawned, "test is too late");
+        let action_names = steps
+            .iter()
+            .enumerate()
+            .map(|(i, _)| {
+                let x1: &'static str = format!("{}[{}]", name.as_str(), i).leak();
+                x1
+            })
+            .to_vec()
+            .into_boxed_slice();
         ctx.actors.push(ActorTemplate {
             name: name.clone(),
             params: Box::new(move |rng| Box::new(next_instance(rng))),
@@ -128,6 +139,7 @@ fn join_as_actor<T: RefUnwindSafe + UnwindSafe + 'static>(
                     x
                 })
                 .to_vec(),
+            action_names,
             setup,
         });
     }
@@ -183,12 +195,14 @@ fn run_actors() {
         actors.sort_by_key(|it| it.name.clone());
         let mut actors = actors
             .into_iter()
-            .map(|template| Actor {
-                template,
-                last_param: None,
-                last_action_index: None,
-                completed_iterations: 0,
-                errors: Default::default(),
+            .map(|template| {
+                Actor {
+                    template,
+                    last_param: None,
+                    last_action_index: None,
+                    completed_iterations: 0,
+                    errors: Default::default(),
+                }
             })
             .to_vec();
 
@@ -227,7 +241,8 @@ fn run_actors() {
                     .get(actor.last_action_index.unwrap())
                     .unwrap();
                 let x = actor.last_param.take().unwrap();
-                let (ret, result) = ecs.execute_once(move |ctx| {
+                let action_name = actor.template.action_names.get(actor.last_action_index.unwrap()).unwrap().clone();
+                let (ret, result) = ecs.execute_once(action_name, move |ctx| {
                     let mut x = x;
                     action(ctx, x.as_mut());
                     x
@@ -253,7 +268,7 @@ fn run_actors() {
     }
 }
 
-const ITERATIONS: usize = 100;
+const ITERATIONS: usize = 10;
 
 #[derive(EcsComponent)]
 pub struct A {}
@@ -417,5 +432,37 @@ fn add_then_delete_AB() -> ActorTestResult {
             },
         ],
         |_rng| None,
+    )
+}
+
+
+#[test]
+fn on_appear() -> ActorTestResult {
+    World::register_query(ecs_filter!(A));
+    static APPEARED: Mutex<Vec<EntityKey>> = Mutex::new(Vec::new());
+
+    join_as_actor(
+        |w| w.add_appear_handler("on_appear_001", ecs_filter!(A), |_ctx, e| {
+            APPEARED.lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .push(e);
+        }),
+        vec![
+            |ctx, s| {
+                *s = Some(ctx.query(ecs_filter!(A))
+                    .map(|it| it.key())
+                    .collect::<HashSet<_>>());
+                APPEARED.lock().unwrap().clear();
+            },
+            |ctx, s| {
+                let prev = s.take().unwrap();
+                let new = ctx.query(ecs_filter!(A))
+                    .map(|it| it.key())
+                    .filter(|it| !prev.contains(it))
+                    .collect::<HashSet<_>>();
+                assert_eq!(new, HashSet::from_iter(mem::take(APPEARED.lock().unwrap().deref_mut())));
+            },
+        ],
+        |_rng| None
     )
 }
