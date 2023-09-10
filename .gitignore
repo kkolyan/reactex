@@ -3,6 +3,6 @@
 /reactex-macro/target
 /reactex-macro-core/target
 Cargo.lock
-/Cargo_.toml
+/Cargo.toml
 .derive_ecs_component.*.txt
 /log4rs.yaml
